@@ -13,14 +13,14 @@ public:
         return std::string(buf);
     }
 
-    // Записать .vtr файл из хост-буфера, который лежит в mesh->get_T_curr()
+    // Записать .vtr файл из хост-буфера (mesh->get_T_curr())
     static void save(Mesh* mesh, int step) {
         std::string filename = make_vtr_name(step);
         std::ofstream file(filename);
         file << std::setprecision(6);
 
-        const int nx = mesh->get_nx();
-        const int ny = mesh->get_ny();
+        const int_t nx = mesh->get_nx();
+        const int_t ny = mesh->get_ny();
         const Float3 vmin = mesh->get_vmin();
 
         file << "<?xml version=\"1.0\"?>\n";
@@ -30,9 +30,9 @@ public:
 
         file << "<PointData Scalars=\"Temperature\">\n";
         file << "<DataArray Name=\"Temperature\" type=\"Float32\" format=\"ascii\">\n";
-        float* T = mesh->get_T_curr();
-        for (int j = 0; j < ny; ++j) {
-            for (int i = 0; i < nx; ++i) {
+        float_t* T = mesh->get_T_curr();
+        for (int_t j = 0; j < ny; ++j) {
+            for (int_t i = 0; i < nx; ++i) {
                 file << T[mesh->idx(i,j)] << " ";
             }
             file << "\n";
@@ -42,11 +42,11 @@ public:
         file << "<Coordinates>\n";
         // X coords
         file << "<DataArray type=\"Float32\" Name=\"X\">\n";
-        for (int i = 0; i < nx; ++i) file << vmin.x + (i + 0.5f)*mesh->get_hx() << " ";
+        for (int_t i = 0; i < nx; ++i) file << vmin.x + (i + 0.5f)*mesh->get_hx() << " ";
         file << "\n</DataArray>\n";
         // Y coords
         file << "<DataArray type=\"Float32\" Name=\"Y\">\n";
-        for (int j = 0; j < ny; ++j) file << vmin.y + (j + 0.5f)*mesh->get_hy() << " ";
+        for (int_t j = 0; j < ny; ++j) file << vmin.y + (j + 0.5f)*mesh->get_hy() << " ";
         file << "\n</DataArray>\n";
         // Z coords (single plane)
         file << "<DataArray type=\"Float32\" Name=\"Z\">\n0.0\n</DataArray>\n";

@@ -1,48 +1,47 @@
 #pragma once
-#include <utility>  // std::swap
+#include "Types.hpp"
+#include <vector>
+#include <utility> // std::swap
 
-// 3D вектор (для совместимости с CUDA)
+// 3D вектор (для совместимости)
 struct Float3 {
-    float x, y, z;
-    Float3(float x = 0, float y = 0, float z = 0) : x(x), y(y), z(z) {}
+    float_t x, y, z;
+    Float3(float_t x = 0, float_t y = 0, float_t z = 0) : x(x), y(y), z(z) {}
 };
 
-// Состояние системы (сырые указатели для простоты и будущего переноса на CUDA)
+// Состояние системы (используем STL-контейнеры — безопаснее)
 struct State {
-    float* T;   // Температура
-    Float3* v;  // Скорость (не используется, но оставлено для расширяемости)
-    float* P;   // Давление (не используется)
-    int size;
+    std::vector<float_t> T;   // Температура
+    std::vector<Float3> v;    // Скорость (не используется, но оставлено)
+    std::vector<float_t> P;   // Давление (не используется)
 
-    State(int size) : size(size) {
-        T = new float[size]();
-        v = new Float3[size]();
-        P = new float[size]();
-    }
+    int_t size;
 
-    ~State() {
-        delete[] T;
-        delete[] v;
-        delete[] P;
+    State() : size(0) {}
+    State(int_t size_) { resize(size_); }
+
+    void resize(int_t s) {
+        size = s;
+        T.assign(size, static_cast<float_t>(0));
+        v.assign(size, Float3());
+        P.assign(size, static_cast<float_t>(0));
     }
 };
 
-// Расширенное состояние (двойная буферизация)
+// Расширенное состояние (двойная буферизация), без сырых указателей
 struct ExtState {
     State curr;
     State next;
 
-    ExtState(int size) {
-        curr = new State(size);
-        next = new State(size);
+    ExtState() {}
+    ExtState(int_t size) { init(size); }
+
+    void init(int_t size) {
+        curr.resize(size);
+        next.resize(size);
     }
 
-    ~ExtState() {
-        delete curr;
-        delete next;
-    }
-
-    void swap() {
+    void swap_buffers() {
         std::swap(curr, next);
     }
 };

@@ -53,10 +53,10 @@ RM = /opt/homebrew/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /Users/lebedev0leg/Nauchnaya-issledovatelskaya-rabota
+CMAKE_SOURCE_DIR = /Users/lebedev0leg/НИР
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /Users/lebedev0leg/Nauchnaya-issledovatelskaya-rabota/build
+CMAKE_BINARY_DIR = /Users/lebedev0leg/НИР/build
 
 # Include any dependencies generated for this target.
 include CMakeFiles/heat.dir/depend.make
@@ -73,46 +73,46 @@ CMakeFiles/heat.dir/codegen:
 .PHONY : CMakeFiles/heat.dir/codegen
 
 CMakeFiles/heat.dir/src/Mesh.cpp.o: CMakeFiles/heat.dir/flags.make
-CMakeFiles/heat.dir/src/Mesh.cpp.o: /Users/lebedev0leg/Nauchnaya-issledovatelskaya-rabota/src/Mesh.cpp
+CMakeFiles/heat.dir/src/Mesh.cpp.o: /Users/lebedev0leg/НИР/src/Mesh.cpp
 CMakeFiles/heat.dir/src/Mesh.cpp.o: CMakeFiles/heat.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/lebedev0leg/Nauchnaya-issledovatelskaya-rabota/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/heat.dir/src/Mesh.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/heat.dir/src/Mesh.cpp.o -MF CMakeFiles/heat.dir/src/Mesh.cpp.o.d -o CMakeFiles/heat.dir/src/Mesh.cpp.o -c /Users/lebedev0leg/Nauchnaya-issledovatelskaya-rabota/src/Mesh.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/lebedev0leg/НИР/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/heat.dir/src/Mesh.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/heat.dir/src/Mesh.cpp.o -MF CMakeFiles/heat.dir/src/Mesh.cpp.o.d -o CMakeFiles/heat.dir/src/Mesh.cpp.o -c /Users/lebedev0leg/НИР/src/Mesh.cpp
 
 CMakeFiles/heat.dir/src/Mesh.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/heat.dir/src/Mesh.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/lebedev0leg/Nauchnaya-issledovatelskaya-rabota/src/Mesh.cpp > CMakeFiles/heat.dir/src/Mesh.cpp.i
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/lebedev0leg/НИР/src/Mesh.cpp > CMakeFiles/heat.dir/src/Mesh.cpp.i
 
 CMakeFiles/heat.dir/src/Mesh.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/heat.dir/src/Mesh.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/lebedev0leg/Nauchnaya-issledovatelskaya-rabota/src/Mesh.cpp -o CMakeFiles/heat.dir/src/Mesh.cpp.s
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/lebedev0leg/НИР/src/Mesh.cpp -o CMakeFiles/heat.dir/src/Mesh.cpp.s
 
 CMakeFiles/heat.dir/src/Solver.cpp.o: CMakeFiles/heat.dir/flags.make
-CMakeFiles/heat.dir/src/Solver.cpp.o: /Users/lebedev0leg/Nauchnaya-issledovatelskaya-rabota/src/Solver.cpp
+CMakeFiles/heat.dir/src/Solver.cpp.o: /Users/lebedev0leg/НИР/src/Solver.cpp
 CMakeFiles/heat.dir/src/Solver.cpp.o: CMakeFiles/heat.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/lebedev0leg/Nauchnaya-issledovatelskaya-rabota/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/heat.dir/src/Solver.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/heat.dir/src/Solver.cpp.o -MF CMakeFiles/heat.dir/src/Solver.cpp.o.d -o CMakeFiles/heat.dir/src/Solver.cpp.o -c /Users/lebedev0leg/Nauchnaya-issledovatelskaya-rabota/src/Solver.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/lebedev0leg/НИР/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/heat.dir/src/Solver.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/heat.dir/src/Solver.cpp.o -MF CMakeFiles/heat.dir/src/Solver.cpp.o.d -o CMakeFiles/heat.dir/src/Solver.cpp.o -c /Users/lebedev0leg/НИР/src/Solver.cpp
 
 CMakeFiles/heat.dir/src/Solver.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/heat.dir/src/Solver.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/lebedev0leg/Nauchnaya-issledovatelskaya-rabota/src/Solver.cpp > CMakeFiles/heat.dir/src/Solver.cpp.i
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/lebedev0leg/НИР/src/Solver.cpp > CMakeFiles/heat.dir/src/Solver.cpp.i
 
 CMakeFiles/heat.dir/src/Solver.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/heat.dir/src/Solver.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/lebedev0leg/Nauchnaya-issledovatelskaya-rabota/src/Solver.cpp -o CMakeFiles/heat.dir/src/Solver.cpp.s
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/lebedev0leg/НИР/src/Solver.cpp -o CMakeFiles/heat.dir/src/Solver.cpp.s
 
 CMakeFiles/heat.dir/src/main.cpp.o: CMakeFiles/heat.dir/flags.make
-CMakeFiles/heat.dir/src/main.cpp.o: /Users/lebedev0leg/Nauchnaya-issledovatelskaya-rabota/src/main.cpp
+CMakeFiles/heat.dir/src/main.cpp.o: /Users/lebedev0leg/НИР/src/main.cpp
 CMakeFiles/heat.dir/src/main.cpp.o: CMakeFiles/heat.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/lebedev0leg/Nauchnaya-issledovatelskaya-rabota/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/heat.dir/src/main.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/heat.dir/src/main.cpp.o -MF CMakeFiles/heat.dir/src/main.cpp.o.d -o CMakeFiles/heat.dir/src/main.cpp.o -c /Users/lebedev0leg/Nauchnaya-issledovatelskaya-rabota/src/main.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/lebedev0leg/НИР/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/heat.dir/src/main.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/heat.dir/src/main.cpp.o -MF CMakeFiles/heat.dir/src/main.cpp.o.d -o CMakeFiles/heat.dir/src/main.cpp.o -c /Users/lebedev0leg/НИР/src/main.cpp
 
 CMakeFiles/heat.dir/src/main.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/heat.dir/src/main.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/lebedev0leg/Nauchnaya-issledovatelskaya-rabota/src/main.cpp > CMakeFiles/heat.dir/src/main.cpp.i
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/lebedev0leg/НИР/src/main.cpp > CMakeFiles/heat.dir/src/main.cpp.i
 
 CMakeFiles/heat.dir/src/main.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/heat.dir/src/main.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/lebedev0leg/Nauchnaya-issledovatelskaya-rabota/src/main.cpp -o CMakeFiles/heat.dir/src/main.cpp.s
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/lebedev0leg/НИР/src/main.cpp -o CMakeFiles/heat.dir/src/main.cpp.s
 
 # Object files for target heat
 heat_OBJECTS = \
@@ -128,7 +128,7 @@ heat: CMakeFiles/heat.dir/src/Solver.cpp.o
 heat: CMakeFiles/heat.dir/src/main.cpp.o
 heat: CMakeFiles/heat.dir/build.make
 heat: CMakeFiles/heat.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/Users/lebedev0leg/Nauchnaya-issledovatelskaya-rabota/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Linking CXX executable heat"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/Users/lebedev0leg/НИР/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Linking CXX executable heat"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/heat.dir/link.txt --verbose=$(VERBOSE)
 
 # Rule to build all files generated by this target.
@@ -140,6 +140,6 @@ CMakeFiles/heat.dir/clean:
 .PHONY : CMakeFiles/heat.dir/clean
 
 CMakeFiles/heat.dir/depend:
-	cd /Users/lebedev0leg/Nauchnaya-issledovatelskaya-rabota/build && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /Users/lebedev0leg/Nauchnaya-issledovatelskaya-rabota /Users/lebedev0leg/Nauchnaya-issledovatelskaya-rabota /Users/lebedev0leg/Nauchnaya-issledovatelskaya-rabota/build /Users/lebedev0leg/Nauchnaya-issledovatelskaya-rabota/build /Users/lebedev0leg/Nauchnaya-issledovatelskaya-rabota/build/CMakeFiles/heat.dir/DependInfo.cmake "--color=$(COLOR)"
+	cd /Users/lebedev0leg/НИР/build && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /Users/lebedev0leg/НИР /Users/lebedev0leg/НИР /Users/lebedev0leg/НИР/build /Users/lebedev0leg/НИР/build /Users/lebedev0leg/НИР/build/CMakeFiles/heat.dir/DependInfo.cmake "--color=$(COLOR)"
 .PHONY : CMakeFiles/heat.dir/depend
 

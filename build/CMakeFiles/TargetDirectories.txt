@@ -1,3 +1,3 @@
-/Users/lebedev0leg/Nauchnaya-issledovatelskaya-rabota/build/CMakeFiles/heat.dir
-/Users/lebedev0leg/Nauchnaya-issledovatelskaya-rabota/build/CMakeFiles/edit_cache.dir
-/Users/lebedev0leg/Nauchnaya-issledovatelskaya-rabota/build/CMakeFiles/rebuild_cache.dir
+/Users/lebedev0leg/НИР/build/CMakeFiles/heat.dir
+/Users/lebedev0leg/НИР/build/CMakeFiles/edit_cache.dir
+/Users/lebedev0leg/НИР/build/CMakeFiles/rebuild_cache.dir
