@@ -11,6 +11,24 @@ private:
     float_t dt;
     OpenCLSolver ocl_solver;
     bool use_opencl;
+
+    void update_dynamic_source(Mesh &mesh, float_t power, float_t time) {
+        Float3 source_pos(5.0f, 5.0f, 0.0f);
+        float_t radius = 0.5f;
+        
+        for (int_t c = 0; c < mesh.get_ncells(); ++c) {
+            Float3 pos = mesh.centers[c];
+            float_t dist_sq = (pos.x - source_pos.x)*(pos.x - source_pos.x) + 
+                             (pos.y - source_pos.y)*(pos.y - source_pos.y);
+            
+            if (dist_sq < radius * radius) {
+                // Пульсирующий источник (всегда положительный)
+                mesh.source[c] = power * (1.0f + 0.5f * std::sin(2.0f * M_PI * time / 5.0f));
+            } else {
+                mesh.source[c] = 0.0f;
+            }
+        }
+    }
     
 public:
     Solver(float_t alpha_) : alpha(alpha_), use_opencl(false) {
@@ -56,6 +74,10 @@ public:
         auto t_start = std::chrono::high_resolution_clock::now();
         
         for (int step = 1; step <= total_steps; ++step) {
+            float_t time = step * dt;
+            update_dynamic_source(mesh, 1000.0f, time);
+            ocl_solver.update_source(&mesh);
+            
             // Выполнение шага на GPU
             if (!ocl_solver.step_device(mesh.get_ncells(), alpha, dt)) {
                 std::cerr << "OpenCL step failed at iteration " << step << "\n";

@@ -25,6 +25,11 @@ public:
     std::vector<Float3> centers;   // size = ncells
     std::vector<float_t> volumes;  // size = ncells
 
+    // Физические свойства
+    std::vector<float_t> kappa;        // коэффициент теплопроводности в центре ячейки
+    std::vector<float_t> kappa_face;   // коэффициент на гранях (интерполированный)
+    std::vector<float_t> source;       // источниковый член f(x,t)
+
     // храним 4 faces на cell (size = 4*ncells)
     std::vector<Face> faces;       // size = 4*ncells
 
