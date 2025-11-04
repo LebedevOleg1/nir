@@ -13,7 +13,6 @@ public:
         return std::string(buf);
     }
 
-    // Записать .vtr файл из хост-буфера (mesh->get_T_curr())
     static void save(Mesh* mesh, int step) {
         std::string filename = make_vtr_name(step);
         std::ofstream file(filename);
@@ -56,7 +55,6 @@ public:
         file.close();
     }
 
-    // Создать PVD-файл, который ссылается на output_XXXX.vtr файлы (количество nSteps)
     static void writePVD(int nSteps, const std::string& pvdName = "output.pvd") {
         std::ofstream pvd(pvdName);
         pvd << "<?xml version=\"1.0\"?>\n";

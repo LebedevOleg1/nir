@@ -9,7 +9,6 @@ struct Float3 {
     Float3(float_t x = 0, float_t y = 0, float_t z = 0) : x(x), y(y), z(z) {}
 };
 
-// Состояние системы (используем STL-контейнеры — безопаснее)
 struct State {
     std::vector<float_t> T;   // Температура
     std::vector<Float3> v;    // Скорость (не используется, но оставлено)
@@ -28,7 +27,6 @@ struct State {
     }
 };
 
-// Расширенное состояние (двойная буферизация), без сырых указателей
 struct ExtState {
     State curr;
     State next;
