@@ -1,8 +1,6 @@
 file(REMOVE_RECURSE
   "CMakeFiles/heat.dir/src/Mesh.cpp.o"
   "CMakeFiles/heat.dir/src/Mesh.cpp.o.d"
-  "CMakeFiles/heat.dir/src/Solver.cpp.o"
-  "CMakeFiles/heat.dir/src/Solver.cpp.o.d"
   "CMakeFiles/heat.dir/src/main.cpp.o"
   "CMakeFiles/heat.dir/src/main.cpp.o.d"
   "heat"

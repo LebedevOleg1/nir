@@ -85,12 +85,12 @@ clean: CMakeFiles/heat.dir/clean
 CMakeFiles/heat.dir/all:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/heat.dir/build.make CMakeFiles/heat.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/heat.dir/build.make CMakeFiles/heat.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/lebedev0leg/НИР/build/CMakeFiles --progress-num=1,2,3,4 "Built target heat"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/lebedev0leg/НИР/build/CMakeFiles --progress-num=1,2,3 "Built target heat"
 .PHONY : CMakeFiles/heat.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/heat.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /Users/lebedev0leg/НИР/build/CMakeFiles 4
+	$(CMAKE_COMMAND) -E cmake_progress_start /Users/lebedev0leg/НИР/build/CMakeFiles 3
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/heat.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /Users/lebedev0leg/НИР/build/CMakeFiles 0
 .PHONY : CMakeFiles/heat.dir/rule
@@ -102,7 +102,7 @@ heat: CMakeFiles/heat.dir/rule
 # codegen rule for target.
 CMakeFiles/heat.dir/codegen:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/heat.dir/build.make CMakeFiles/heat.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/lebedev0leg/НИР/build/CMakeFiles --progress-num=1,2,3,4 "Finished codegen for target heat"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/lebedev0leg/НИР/build/CMakeFiles --progress-num=1,2,3 "Finished codegen for target heat"
 .PHONY : CMakeFiles/heat.dir/codegen
 
 # clean rule for target.

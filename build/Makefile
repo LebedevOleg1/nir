@@ -153,30 +153,6 @@ src/Mesh.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/heat.dir/build.make CMakeFiles/heat.dir/src/Mesh.cpp.s
 .PHONY : src/Mesh.cpp.s
 
-src/Solver.o: src/Solver.cpp.o
-.PHONY : src/Solver.o
-
-# target to build an object file
-src/Solver.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/heat.dir/build.make CMakeFiles/heat.dir/src/Solver.cpp.o
-.PHONY : src/Solver.cpp.o
-
-src/Solver.i: src/Solver.cpp.i
-.PHONY : src/Solver.i
-
-# target to preprocess a source file
-src/Solver.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/heat.dir/build.make CMakeFiles/heat.dir/src/Solver.cpp.i
-.PHONY : src/Solver.cpp.i
-
-src/Solver.s: src/Solver.cpp.s
-.PHONY : src/Solver.s
-
-# target to generate assembly for a file
-src/Solver.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/heat.dir/build.make CMakeFiles/heat.dir/src/Solver.cpp.s
-.PHONY : src/Solver.cpp.s
-
 src/main.o: src/main.cpp.o
 .PHONY : src/main.o
 
@@ -213,9 +189,6 @@ help:
 	@echo "... src/Mesh.o"
 	@echo "... src/Mesh.i"
 	@echo "... src/Mesh.s"
-	@echo "... src/Solver.o"
-	@echo "... src/Solver.i"
-	@echo "... src/Solver.s"
 	@echo "... src/main.o"
 	@echo "... src/main.i"
 	@echo "... src/main.s"
