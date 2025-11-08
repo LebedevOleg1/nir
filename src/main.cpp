@@ -28,23 +28,75 @@ void init_gaussians(Mesh &mesh, float_t T0, float_t sigma) {
     }
 }
 
+// Функция для обновления kappa на гранях
+void update_face_kappa(Mesh &mesh) {
+    for (int_t c = 0; c < mesh.get_ncells(); ++c) {
+        for (int k = 0; k < 4; ++k) {
+            int_t fi = mesh.face_index(c, k);
+            int_t nb = mesh.faces[fi].neighbor;
+            
+            // Гармоническое среднее
+            float_t d = mesh.faces[fi].distance;
+            float_t d1 = d / 2.0f;
+            float_t d2 = d / 2.0f;
+            mesh.kappa_face[fi] = (d1 + d2) / (d1/mesh.kappa[c] + d2/mesh.kappa[nb]);
+        }
+    }
+}
+
+// Неоднородный материал (слоистая структура)
+void init_layered_material(Mesh &mesh) {
+    int_t nx = mesh.get_nx();
+    int_t ny = mesh.get_ny();
+    
+    for (int_t j = 0; j < ny; ++j) {
+        for (int_t i = 0; i < nx; ++i) {
+            int_t c = mesh.idx(i, j);
+            float_t x = mesh.centers[c].x;
+            
+            // Три слоя с разной теплопроводностью
+            if (x < 3.33f) {
+                mesh.kappa[c] = 0.1f;  // низкая теплопроводность
+            } else if (x < 6.66f) {
+                mesh.kappa[c] = 1.0f;  // средняя
+            } else {
+                mesh.kappa[c] = 0.1f;  // снова низкая
+            }
+        }
+    }
+    
+    update_face_kappa(mesh);
+}
+
+// Источник тепла (нагреватель типа)
+void add_constant_heat_source(Mesh &mesh, float_t power) {
+    Float3 source_pos(5.0f, 5.0f, 0.0f);
+    float_t radius = 0.5f;
+    
+    for (int_t c = 0; c < mesh.get_ncells(); ++c) {
+        Float3 pos = mesh.centers[c];
+        float_t dist_sq = (pos.x - source_pos.x)*(pos.x - source_pos.x) + 
+                         (pos.y - source_pos.y)*(pos.y - source_pos.y);
+        
+        if (dist_sq < radius * radius) {
+            mesh.source[c] = power;  // Постоянная мощность
+        }
+    }
+}
+
+// В main():
 int main() {
-    // Параметры сетки
     int_t nx = 200, ny = 200;
     Mesh mesh(nx, ny, Float3(0.0f,0.0f,0.0f), Float3(10.0f,10.0f,0.0f));
     
-    // Инициализация начального состояния
-    float_t T0 = 100.0f, sigma = 0.8f;
-    init_gaussians(mesh, T0, sigma);
+    // Инициализация с неоднородностью
+    init_gaussians(mesh, 100.0f, 0.8f);
+    init_layered_material(mesh);  // добавляем слои с разной теплопроводностью
     
-    // Параметры решения
-    float_t alpha = 0.1f;  // коэффициент теплопроводности
-    int total_steps = 400;
-    int save_every = 10;
+    add_constant_heat_source(mesh, 5.0f);
     
-    // Создание и запуск солвера
-    Solver solver(alpha);
-    solver.solve(mesh, total_steps, save_every);
+    Solver solver(1.0f);
+    solver.solve(mesh, 400, 10);
     
     return 0;
 }

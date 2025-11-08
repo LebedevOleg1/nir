@@ -13,6 +13,11 @@ Mesh::Mesh(int_t nx_, int_t ny_, Float3 min, Float3 max)
     faces.resize(4 * ncells);
     cell_faces.resize(4 * ncells);
 
+    kappa.resize(ncells, 1.0f);        
+    kappa_face.resize(4 * ncells);
+    source.resize(ncells, 0.0f);       
+
+    // Сначала инициализируем центры и объемы
     for (int_t j = 0; j < ny; ++j) {
         for (int_t i = 0; i < nx; ++i) {
             int_t c = cell_index(i, j);
@@ -23,9 +28,7 @@ Mesh::Mesh(int_t nx_, int_t ny_, Float3 min, Float3 max)
         }
     }
 
-    // Для каждой ячейки создаём 4 "локальных" граней:
-    // k=0: left, k=1: right, k=2: bottom, k=3: top
-    // neighbor с учётом периодичности
+    // Затем инициализируем грани
     for (int_t j = 0; j < ny; ++j) {
         for (int_t i = 0; i < nx; ++i) {
             int_t c = cell_index(i, j);
@@ -40,10 +43,10 @@ Mesh::Mesh(int_t nx_, int_t ny_, Float3 min, Float3 max)
 
                 faces[fi].owner = c;
                 faces[fi].neighbor = nb;
-                faces[fi].area = hy; // вертикальная грань длина hy
-                faces[fi].normal = Float3(-1.0f, 0.0f, 0.0f); // внешняя влево
+                faces[fi].area = hy;
+                faces[fi].normal = Float3(-1.0f, 0.0f, 0.0f);
                 faces[fi].centroid = Float3(v_min.x + i * hx, v_min.y + (j + 0.5f)*hy, 0.0f);
-                faces[fi].distance = std::abs(centers[c].x - centers[nb].x);
+                faces[fi].distance = hx; // фиксированное расстояние для регулярной сетки
                 cell_faces[c*4 + k] = fi;
             }
 
@@ -60,7 +63,7 @@ Mesh::Mesh(int_t nx_, int_t ny_, Float3 min, Float3 max)
                 faces[fi].area = hy;
                 faces[fi].normal = Float3(1.0f, 0.0f, 0.0f);
                 faces[fi].centroid = Float3(v_min.x + (i + 1) * hx, v_min.y + (j + 0.5f)*hy, 0.0f);
-                faces[fi].distance = std::abs(centers[c].x - centers[nb].x);
+                faces[fi].distance = hx;
                 cell_faces[c*4 + k] = fi;
             }
 
@@ -74,10 +77,10 @@ Mesh::Mesh(int_t nx_, int_t ny_, Float3 min, Float3 max)
 
                 faces[fi].owner = c;
                 faces[fi].neighbor = nb;
-                faces[fi].area = hx; // горизонтальная грань длина hx
-                faces[fi].normal = Float3(0.0f, -1.0f, 0.0f); // вниз
+                faces[fi].area = hx;
+                faces[fi].normal = Float3(0.0f, -1.0f, 0.0f);
                 faces[fi].centroid = Float3(v_min.x + (i + 0.5f)*hx, v_min.y + j * hy, 0.0f);
-                faces[fi].distance = std::abs(centers[c].y - centers[nb].y);
+                faces[fi].distance = hy;
                 cell_faces[c*4 + k] = fi;
             }
 
@@ -92,12 +95,22 @@ Mesh::Mesh(int_t nx_, int_t ny_, Float3 min, Float3 max)
                 faces[fi].owner = c;
                 faces[fi].neighbor = nb;
                 faces[fi].area = hx;
-                faces[fi].normal = Float3(0.0f, 1.0f, 0.0f); // вверх
+                faces[fi].normal = Float3(0.0f, 1.0f, 0.0f);
                 faces[fi].centroid = Float3(v_min.x + (i + 0.5f)*hx, v_min.y + (j + 1) * hy, 0.0f);
-                faces[fi].distance = std::abs(centers[c].y - centers[nb].y);
+                faces[fi].distance = hy;
                 cell_faces[c*4 + k] = fi;
             }
         }
+    }
+
+    for (int_t fi = 0; fi < 4 * ncells; ++fi) {
+        int_t owner = faces[fi].owner;
+        int_t neighbor = faces[fi].neighbor;
+        
+        float_t d = faces[fi].distance;
+        float_t d1 = d / 2.0f;
+        float_t d2 = d / 2.0f;
+        kappa_face[fi] = (d1 + d2) / (d1/kappa[owner] + d2/kappa[neighbor]);
     }
 
     data.init(ncells);
