@@ -49,8 +49,8 @@ public:
         if (bufVolumes) clReleaseMemObject(bufVolumes);
         if (bufFaces) clReleaseMemObject(bufFaces);
         if (bufCellFaces) clReleaseMemObject(bufCellFaces);
-        if (bufKappaFace) clReleaseMemObject(bufKappaFace);  // добавить
-        if (bufSource) clReleaseMemObject(bufSource);        // добавить
+        if (bufKappaFace) clReleaseMemObject(bufKappaFace);
+        if (bufSource) clReleaseMemObject(bufSource);
         if (queue) clReleaseCommandQueue(queue);
         if (context) clReleaseContext(context);
     }
@@ -225,13 +225,9 @@ private:
                 clGetDeviceIDs(p, CL_DEVICE_TYPE_GPU, num_devices, devices.data(), nullptr);
                 platform = p;
                 device = devices[0];
-                break;
-            }
-            if (clGetDeviceIDs(p, CL_DEVICE_TYPE_CPU, 0, nullptr, &num_devices) == CL_SUCCESS && num_devices > 0) {
-                std::vector<cl_device_id> devices(num_devices);
-                clGetDeviceIDs(p, CL_DEVICE_TYPE_CPU, num_devices, devices.data(), nullptr);
-                platform = p;
-                device = devices[0];
+                // char name[256];
+                // clGetDeviceInfo(device, CL_DEVICE_NAME, sizeof(name), name, nullptr);
+                // std::cout << name << std::endl;
                 break;
             }
         }
