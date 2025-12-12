@@ -1,0 +1,3 @@
+C:/Users/user/Desktop/CudaProject/build/CMakeFiles/heat.dir
+C:/Users/user/Desktop/CudaProject/build/CMakeFiles/edit_cache.dir
+C:/Users/user/Desktop/CudaProject/build/CMakeFiles/rebuild_cache.dir

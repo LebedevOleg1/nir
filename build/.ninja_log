@@ -1,0 +1,6 @@
+# ninja log v6
+49	416	7872776752593596	CMakeFiles/heat.dir/src/Mesh.cpp.obj	8401ebcc70ace869
+9	5187	7872778144491224	CMakeFiles/heat.dir/src/CudaSolver.cu.obj	b4b72ad6be63a1a3
+10	669	7872784119887698	CMakeFiles/heat.dir/src/main.cpp.obj	48be0be721a88ed2
+670	872	7872784126497109	heat.exe	65ae457d7d1aa88a
+8	491	7872783169452475	CMakeFiles/heat.dir/src/CpuSolver.cpp.obj	ebb3fb9aae3ac2ae
