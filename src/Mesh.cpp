@@ -10,13 +10,16 @@ Mesh::Mesh(int_t nx_, int_t ny_, Float3 min, Float3 max)
 
     centers.resize(ncells);
     volumes.resize(ncells);
+
+    // SoA: выделяем 4*ncells граней (left, right, bottom, top для каждой ячейки)
     faces.resize(4 * ncells);
     cell_faces.resize(4 * ncells);
 
-    kappa.resize(ncells, 1.0f);        
+    kappa.resize(ncells, 1.0f);
     kappa_face.resize(4 * ncells);
-    source.resize(ncells, 0.0f);       
+    source.resize(ncells, 0.0f);
 
+    // --- Вычисление центров и объёмов ячеек ---
     for (int_t j = 0; j < ny; ++j) {
         for (int_t i = 0; i < nx; ++i) {
             int_t c = cell_index(i, j);
@@ -27,88 +30,86 @@ Mesh::Mesh(int_t nx_, int_t ny_, Float3 min, Float3 max)
         }
     }
 
+    // --- Построение граней (SoA) ---
+    // Каждая ячейка имеет 4 грани: k=0 left, k=1 right, k=2 bottom, k=3 top.
+    // Периодические граничные условия: сетка «замкнута» в тор.
     for (int_t j = 0; j < ny; ++j) {
         for (int_t i = 0; i < nx; ++i) {
             int_t c = cell_index(i, j);
 
-            // left face (k=0)
+            // left (k=0)
             {
                 int k = 0;
                 int_t fi = face_index(c, k);
-                int_t inb = (i - 1 + nx) % nx;
-                int_t jnb = j;
-                int_t nb = cell_index(inb, jnb);
+                int_t nb = cell_index((i - 1 + nx) % nx, j);
 
-                faces[fi].owner = c;
-                faces[fi].neighbor = nb;
-                faces[fi].area = hy;
-                faces[fi].normal = Float3(-1.0f, 0.0f, 0.0f);
-                faces[fi].centroid = Float3(v_min.x + i * hx, v_min.y + (j + 0.5f)*hy, 0.0f);
-                faces[fi].distance = hx;
+                faces.owner[fi]    = c;
+                faces.neighbor[fi] = nb;
+                faces.area[fi]     = hy;
+                faces.normal[fi]   = Float3(-1.0f, 0.0f, 0.0f);
+                faces.centroid[fi] = Float3(v_min.x + i * hx, v_min.y + (j + 0.5f)*hy, 0.0f);
+                faces.distance[fi] = hx;
                 cell_faces[c*4 + k] = fi;
             }
 
-            // right face (k=1)
+            // right (k=1)
             {
                 int k = 1;
                 int_t fi = face_index(c, k);
-                int_t inb = (i + 1) % nx;
-                int_t jnb = j;
-                int_t nb = cell_index(inb, jnb);
+                int_t nb = cell_index((i + 1) % nx, j);
 
-                faces[fi].owner = c;
-                faces[fi].neighbor = nb;
-                faces[fi].area = hy;
-                faces[fi].normal = Float3(1.0f, 0.0f, 0.0f);
-                faces[fi].centroid = Float3(v_min.x + (i + 1) * hx, v_min.y + (j + 0.5f)*hy, 0.0f);
-                faces[fi].distance = hx;
+                faces.owner[fi]    = c;
+                faces.neighbor[fi] = nb;
+                faces.area[fi]     = hy;
+                faces.normal[fi]   = Float3(1.0f, 0.0f, 0.0f);
+                faces.centroid[fi] = Float3(v_min.x + (i + 1) * hx, v_min.y + (j + 0.5f)*hy, 0.0f);
+                faces.distance[fi] = hx;
                 cell_faces[c*4 + k] = fi;
             }
 
-            // bottom face (k=2)
+            // bottom (k=2)
             {
                 int k = 2;
                 int_t fi = face_index(c, k);
-                int_t inb = i;
-                int_t jnb = (j - 1 + ny) % ny;
-                int_t nb = cell_index(inb, jnb);
+                int_t nb = cell_index(i, (j - 1 + ny) % ny);
 
-                faces[fi].owner = c;
-                faces[fi].neighbor = nb;
-                faces[fi].area = hx;
-                faces[fi].normal = Float3(0.0f, -1.0f, 0.0f);
-                faces[fi].centroid = Float3(v_min.x + (i + 0.5f)*hx, v_min.y + j * hy, 0.0f);
-                faces[fi].distance = hy;
+                faces.owner[fi]    = c;
+                faces.neighbor[fi] = nb;
+                faces.area[fi]     = hx;
+                faces.normal[fi]   = Float3(0.0f, -1.0f, 0.0f);
+                faces.centroid[fi] = Float3(v_min.x + (i + 0.5f)*hx, v_min.y + j * hy, 0.0f);
+                faces.distance[fi] = hy;
                 cell_faces[c*4 + k] = fi;
             }
 
-            // top face (k=3)
+            // top (k=3)
             {
                 int k = 3;
                 int_t fi = face_index(c, k);
-                int_t inb = i;
-                int_t jnb = (j + 1) % ny;
-                int_t nb = cell_index(inb, jnb);
+                int_t nb = cell_index(i, (j + 1) % ny);
 
-                faces[fi].owner = c;
-                faces[fi].neighbor = nb;
-                faces[fi].area = hx;
-                faces[fi].normal = Float3(0.0f, 1.0f, 0.0f);
-                faces[fi].centroid = Float3(v_min.x + (i + 0.5f)*hx, v_min.y + (j + 1) * hy, 0.0f);
-                faces[fi].distance = hy;
+                faces.owner[fi]    = c;
+                faces.neighbor[fi] = nb;
+                faces.area[fi]     = hx;
+                faces.normal[fi]   = Float3(0.0f, 1.0f, 0.0f);
+                faces.centroid[fi] = Float3(v_min.x + (i + 0.5f)*hx, v_min.y + (j + 1) * hy, 0.0f);
+                faces.distance[fi] = hy;
                 cell_faces[c*4 + k] = fi;
             }
         }
     }
 
+    // --- Теплопроводность на гранях (гармоническое среднее) ---
+    // Гармоническое среднее правильно учитывает скачок теплопроводности
+    // на границе двух материалов (аналогия: последовательное сопротивление).
     for (int_t fi = 0; fi < 4 * ncells; ++fi) {
-        int_t owner = faces[fi].owner;
-        int_t neighbor = faces[fi].neighbor;
-        
-        float_t d = faces[fi].distance;
+        int_t o = faces.owner[fi];
+        int_t n = faces.neighbor[fi];
+
+        float_t d  = faces.distance[fi];
         float_t d1 = d / 2.0f;
         float_t d2 = d / 2.0f;
-        kappa_face[fi] = (d1 + d2) / (d1/kappa[owner] + d2/kappa[neighbor]);
+        kappa_face[fi] = (d1 + d2) / (d1/kappa[o] + d2/kappa[n]);
     }
 
     data.init(ncells);

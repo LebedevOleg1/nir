@@ -1,43 +1,50 @@
 cmake_minimum_required(VERSION 3.18)
 
-# Включаем поддержку и C++, и CUDA
+# Проект использует три языка/технологии:
+#   CXX  — C++17, основной язык
+#   CUDA — NVIDIA GPU compute (nvcc компилирует .cu файлы)
 project(heat2d_hybrid LANGUAGES CXX CUDA)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Находим инструменты CUDA
+# --- Зависимости ---
+
+# CUDA Toolkit: предоставляет CUDA::cudart, thrust и пр.
 find_package(CUDAToolkit REQUIRED)
 
-# --- НАСТРОЙКИ КОМПИЛЯЦИИ ---
+# MPI: предоставляет MPI::MPI_CXX для межпроцессного обмена
+find_package(MPI REQUIRED)
 
-# 1. Архитектура RTX 4050 (Ada Lovelace)
-set(CMAKE_CUDA_ARCHITECTURES 89)
+# --- Настройки компиляции ---
 
-# 2. Флаг, чтобы CUDA не ругалась на новую версию Visual Studio
-# Также можно добавить -O3 для оптимизации, но лучше переключать режим сборки в VS Code
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -allow-unsupported-compiler")
+# Архитектура GPU закомментирована — CMake определит автоматически,
+# либо на кластере можно задать через -DCMAKE_CUDA_ARCHITECTURES=XX
+# set(CMAKE_CUDA_ARCHITECTURES 89)
 
-# Подключаем папку include
+# Подключаем заголовки
 include_directories(${CMAKE_SOURCE_DIR}/include)
 
-# --- СБОРКА ИСХОДНИКОВ ---
+# --- Сборка ---
 
-# Автоматически находим все .cpp и .cu файлы в папке src
+# Собираем все .cpp и .cu из src/
 file(GLOB SOURCES
     "${CMAKE_SOURCE_DIR}/src/*.cpp"
     "${CMAKE_SOURCE_DIR}/src/*.cu"
 )
 
-# Создаем исполняемый файл
 add_executable(heat ${SOURCES})
 
-# --- ЛИНКОВКА ---
+# --- Линковка ---
 
-# Линкуем стандартную библиотеку CUDA Runtime
+# CUDA Runtime + device runtime (для dynamic parallelism если понадобится)
 target_link_libraries(heat PRIVATE CUDA::cudart)
+target_link_libraries(heat ${CUDA_LIBRARIES} ${CUDA_cudadevrt_LIBRARY})
 
-# Линкуем математическую библиотеку (для sin/cos на CPU, если нужно)
+# MPI
+target_link_libraries(heat PRIVATE MPI::MPI_CXX)
+
+# Math library (Linux)
 if(UNIX)
     target_link_libraries(heat PRIVATE m)
 endif()
