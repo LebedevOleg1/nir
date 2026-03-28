@@ -32,14 +32,15 @@ int main(int argc, char** argv) {
     // Разбиение: каждый ранк получает свою полосу строк
     decomp.init(global_nx, global_ny);
 
-    // Выбор CPU/GPU (только rank 0 спрашивает, остальные получают через broadcast)
-    int choice = 2;
-    if (decomp.rank == 0) {
-        std::cout << "\n1. GPU (CUDA)\n2. CPU\n> ";
-        std::cin >> choice;
+    // Выбор CPU/GPU через аргумент командной строки:
+    //   mpirun -np 2 ./heat gpu    → CUDA
+    //   mpirun -np 2 ./heat cpu    → CPU (по умолчанию)
+    // Интерактивный stdin не подходит для MPI — все ранки должны
+    // получить одинаковое значение, а stdin доступен только rank 0.
+    bool use_gpu = false;
+    if (argc > 1 && std::string(argv[1]) == "gpu") {
+        use_gpu = true;
     }
-    MPI_Bcast(&choice, 1, MPI_INT, 0, MPI_COMM_WORLD);
-    bool use_gpu = (choice == 1);
 
     // Если GPU — привязываем каждый MPI-ранк к своему CUDA-устройству.
     // На cluster4 — 2 GPU, rank 0 → GPU 0, rank 1 → GPU 1.
