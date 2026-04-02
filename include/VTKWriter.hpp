@@ -26,9 +26,9 @@ public:
 
         file << "<?xml version=\"1.0\"?>\n";
         file << "<VTKFile type=\"RectilinearGrid\" version=\"0.1\" byte_order=\"LittleEndian\">\n";
-        // Extent declares nx*ny CELLS: nodes go from 0..nx in X and 0..ny in Y
-        file << "<RectilinearGrid WholeExtent=\"0 " << nx << " 0 " << ny << " 0 1\">\n";
-        file << "<Piece Extent=\"0 " << nx << " 0 " << ny << " 0 1\">\n";
+        // Extent: nx*ny CELLS, nodes 0..nx in X, 0..ny in Y, Z=0 (2D degenerate)
+        file << "<RectilinearGrid WholeExtent=\"0 " << nx << " 0 " << ny << " 0 0\">\n";
+        file << "<Piece Extent=\"0 " << nx << " 0 " << ny << " 0 0\">\n";
 
         // CellData: one value per cell (cell-centered FVM data)
         file << "<CellData Scalars=\"Temperature\">\n";
@@ -51,8 +51,8 @@ public:
         file << "<DataArray type=\"Float32\" Name=\"Y\">\n";
         for (int_t j = 0; j <= ny; ++j) file << vmin.y + j*hy << " ";
         file << "\n</DataArray>\n";
-        // Z coords: 2 values for 1 cell layer in Z
-        file << "<DataArray type=\"Float32\" Name=\"Z\">\n0.0 1.0\n</DataArray>\n";
+        // Z: single node for 2D
+        file << "<DataArray type=\"Float32\" Name=\"Z\">\n0.0\n</DataArray>\n";
         file << "</Coordinates>\n";
 
         file << "</Piece>\n</RectilinearGrid>\n</VTKFile>";
