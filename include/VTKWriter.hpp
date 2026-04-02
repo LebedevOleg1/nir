@@ -36,25 +36,34 @@ public:
         file << "<PointData Scalars=\"Temperature\">\n";
         file << "<DataArray Name=\"Temperature\" type=\"Float32\" format=\"ascii\">\n";
         float_t* T = mesh->get_T_curr();
+        int count = 0;
         for (int_t j = 0; j <= ny; ++j) {
-            int_t jc = (j < ny) ? j : ny - 1;   // clamp: последняя строка узлов = последняя ячейка
+            int_t jc = (j < ny) ? j : ny - 1;
             for (int_t i = 0; i <= nx; ++i) {
-                int_t ic = (i < nx) ? i : nx - 1; // clamp: последний столбец узлов = последняя ячейка
-                file << T[mesh->idx(ic, jc)] << " ";
+                int_t ic = (i < nx) ? i : nx - 1;
+                file << T[mesh->idx(ic, jc)];
+                if (++count % 10 == 0) file << "\n";
+                else                   file << " ";
             }
-            file << "\n";
         }
+        if (count % 10 != 0) file << "\n";
         file << "</DataArray>\n</PointData>\n";
 
         file << "<Coordinates>\n";
         // X: nx+1 узловых позиций
         file << "<DataArray type=\"Float32\" Name=\"X\">\n";
-        for (int_t i = 0; i <= nx; ++i) file << vmin.x + i * hx << " ";
-        file << "\n</DataArray>\n";
+        for (int_t i = 0; i <= nx; ++i) {
+            file << vmin.x + i * hx;
+            if ((i + 1) % 10 == 0 || i == nx) file << "\n"; else file << " ";
+        }
+        file << "</DataArray>\n";
         // Y: ny+1 узловых позиций
         file << "<DataArray type=\"Float32\" Name=\"Y\">\n";
-        for (int_t j = 0; j <= ny; ++j) file << vmin.y + j * hy << " ";
-        file << "\n</DataArray>\n";
+        for (int_t j = 0; j <= ny; ++j) {
+            file << vmin.y + j * hy;
+            if ((j + 1) % 10 == 0 || j == ny) file << "\n"; else file << " ";
+        }
+        file << "</DataArray>\n";
         // Z: один узел (2D вырожденная сетка)
         file << "<DataArray type=\"Float32\" Name=\"Z\">\n0.0\n</DataArray>\n";
         file << "</Coordinates>\n";
