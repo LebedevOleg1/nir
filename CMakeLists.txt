@@ -16,6 +16,9 @@ find_package(CUDAToolkit REQUIRED)
 # MPI: предоставляет MPI::MPI_CXX для межпроцессного обмена
 find_package(MPI REQUIRED)
 
+# OpenMP: параллелизм на CPU (используется в solver.cpp)
+find_package(OpenMP REQUIRED)
+
 # --- Настройки компиляции ---
 
 # Архитектура GPU закомментирована — CMake определит автоматически,
@@ -43,6 +46,9 @@ target_link_libraries(heat ${CUDA_LIBRARIES} ${CUDA_cudadevrt_LIBRARY})
 
 # MPI
 target_link_libraries(heat PRIVATE MPI::MPI_CXX)
+
+# OpenMP
+target_link_libraries(heat PRIVATE OpenMP::OpenMP_CXX)
 
 # Math library (Linux)
 if(UNIX)

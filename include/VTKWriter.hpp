@@ -51,21 +51,21 @@ public:
 
         file << "<Coordinates>\n";
         // X: nx+1 узловых позиций
-        file << "<DataArray type=\"Float32\" Name=\"X\">\n";
+        file << "<DataArray type=\"Float32\" Name=\"X\" format=\"ascii\">\n";
         for (int_t i = 0; i <= nx; ++i) {
             file << vmin.x + i * hx;
             if ((i + 1) % 10 == 0 || i == nx) file << "\n"; else file << " ";
         }
         file << "</DataArray>\n";
         // Y: ny+1 узловых позиций
-        file << "<DataArray type=\"Float32\" Name=\"Y\">\n";
+        file << "<DataArray type=\"Float32\" Name=\"Y\" format=\"ascii\">\n";
         for (int_t j = 0; j <= ny; ++j) {
             file << vmin.y + j * hy;
             if ((j + 1) % 10 == 0 || j == ny) file << "\n"; else file << " ";
         }
         file << "</DataArray>\n";
         // Z: один узел (2D вырожденная сетка)
-        file << "<DataArray type=\"Float32\" Name=\"Z\">\n0.0\n</DataArray>\n";
+        file << "<DataArray type=\"Float32\" Name=\"Z\" format=\"ascii\">\n0.0\n</DataArray>\n";
         file << "</Coordinates>\n";
 
         file << "</Piece>\n</RectilinearGrid>\n</VTKFile>";
