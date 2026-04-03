@@ -13,11 +13,17 @@ public:
         return std::string(buf);
     }
 
+    // Вспомогательная функция: пишет float через snprintf (игнорирует локаль,
+    // всегда использует точку как десятичный разделитель).
+    static void write_float(std::ofstream& file, float val) {
+        char buf[32];
+        std::snprintf(buf, sizeof(buf), "%.6g", val);
+        file << buf;
+    }
+
     static void save(Mesh* mesh, int step) {
         std::string filename = make_vtr_name(step);
         std::ofstream file(filename);
-        file.imbue(std::locale("C"));
-        file << std::setprecision(6);
 
         const int_t nx = mesh->get_nx();
         const int_t ny = mesh->get_ny();
@@ -27,11 +33,10 @@ public:
 
         file << "<?xml version=\"1.0\"?>\n";
         file << "<VTKFile type=\"RectilinearGrid\" version=\"0.1\" byte_order=\"LittleEndian\">\n";
-        // Extent в узловых индексах: nx+1 узлов по X, ny+1 по Y
         file << "<RectilinearGrid WholeExtent=\"0 " << nx << " 0 " << ny << " 0 0\">\n";
         file << "<Piece Extent=\"0 " << nx << " 0 " << ny << " 0 0\">\n";
 
-        // PointData: (nx+1)*(ny+1) = 501501 значений.
+        // PointData: (nx+1)*(ny+1) значений.
         // Ячеечные значения FVM приписываем ближайшему узлу (nearest-neighbor).
         file << "<PointData Scalars=\"Temperature\">\n";
         file << "<DataArray Name=\"Temperature\" type=\"Float32\" format=\"ascii\">\n";
@@ -41,7 +46,7 @@ public:
             int_t jc = (j < ny) ? j : ny - 1;
             for (int_t i = 0; i <= nx; ++i) {
                 int_t ic = (i < nx) ? i : nx - 1;
-                file << T[mesh->idx(ic, jc)];
+                write_float(file, T[mesh->idx(ic, jc)]);
                 if (++count % 10 == 0) file << "\n";
                 else                   file << " ";
             }
@@ -50,25 +55,22 @@ public:
         file << "</DataArray>\n</PointData>\n";
 
         file << "<Coordinates>\n";
-        // X: nx+1 узловых позиций
         file << "<DataArray type=\"Float32\" Name=\"X\" format=\"ascii\">\n";
         for (int_t i = 0; i <= nx; ++i) {
-            file << vmin.x + i * hx;
+            write_float(file, vmin.x + i * hx);
             if ((i + 1) % 10 == 0 || i == nx) file << "\n"; else file << " ";
         }
         file << "</DataArray>\n";
-        // Y: ny+1 узловых позиций
         file << "<DataArray type=\"Float32\" Name=\"Y\" format=\"ascii\">\n";
         for (int_t j = 0; j <= ny; ++j) {
-            file << vmin.y + j * hy;
+            write_float(file, vmin.y + j * hy);
             if ((j + 1) % 10 == 0 || j == ny) file << "\n"; else file << " ";
         }
         file << "</DataArray>\n";
-        // Z: один узел (2D вырожденная сетка)
         file << "<DataArray type=\"Float32\" Name=\"Z\" format=\"ascii\">\n0.0\n</DataArray>\n";
         file << "</Coordinates>\n";
 
-        file << "</Piece>\n</RectilinearGrid>\n</VTKFile>";
+        file << "</Piece>\n</RectilinearGrid>\n</VTKFile>\n";
         file.close();
     }
 
