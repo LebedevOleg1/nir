@@ -23,55 +23,61 @@ public:
 
     static void save(Mesh* mesh, int step) {
         std::string filename = make_vtr_name(step);
-        std::ofstream file(filename);
+        FILE* fp = std::fopen(filename.c_str(), "w");
+        if (!fp) return;
 
         const int_t nx = mesh->get_nx();
         const int_t ny = mesh->get_ny();
         const Float3 vmin = mesh->get_vmin();
         const float_t hx = mesh->get_hx();
         const float_t hy = mesh->get_hy();
+        const int_t ncells = nx * ny;
 
-        file << "<?xml version=\"1.0\"?>\n";
-        file << "<VTKFile type=\"RectilinearGrid\" version=\"0.1\" byte_order=\"LittleEndian\">\n";
-        file << "<RectilinearGrid WholeExtent=\"0 " << nx << " 0 " << ny << " 0 0\">\n";
-        file << "<Piece Extent=\"0 " << nx << " 0 " << ny << " 0 0\">\n";
+        std::fprintf(fp, "<?xml version=\"1.0\"?>\n");
+        std::fprintf(fp, "<VTKFile type=\"RectilinearGrid\" version=\"0.1\" byte_order=\"LittleEndian\">\n");
+        std::fprintf(fp, "<RectilinearGrid WholeExtent=\"0 %d 0 %d 0 0\">\n", nx, ny);
+        std::fprintf(fp, "<Piece Extent=\"0 %d 0 %d 0 0\">\n", nx, ny);
 
-        // PointData: (nx+1)*(ny+1) значений.
-        // Ячеечные значения FVM приписываем ближайшему узлу (nearest-neighbor).
-        file << "<PointData Scalars=\"Temperature\">\n";
-        file << "<DataArray Name=\"Temperature\" type=\"Float32\" format=\"ascii\">\n";
+        // CellData: nx*ny значений — естественное представление для FVM
+        std::fprintf(fp, "<CellData Scalars=\"Temperature\">\n");
+        std::fprintf(fp, "<DataArray type=\"Float32\" Name=\"Temperature\" "
+                         "NumberOfTuples=\"%d\" format=\"ascii\">\n", ncells);
         float_t* T = mesh->get_T_curr();
-        int count = 0;
-        for (int_t j = 0; j <= ny; ++j) {
-            int_t jc = (j < ny) ? j : ny - 1;
-            for (int_t i = 0; i <= nx; ++i) {
-                int_t ic = (i < nx) ? i : nx - 1;
-                write_float(file, T[mesh->idx(ic, jc)]);
-                if (++count % 10 == 0) file << "\n";
-                else                   file << " ";
-            }
+        for (int_t c = 0; c < ncells; ++c) {
+            std::fprintf(fp, "%.6g", T[c]);
+            if ((c + 1) % 10 == 0) std::fprintf(fp, "\n");
+            else                    std::fprintf(fp, " ");
         }
-        if (count % 10 != 0) file << "\n";
-        file << "</DataArray>\n</PointData>\n";
+        if (ncells % 10 != 0) std::fprintf(fp, "\n");
+        std::fprintf(fp, "</DataArray>\n</CellData>\n");
 
-        file << "<Coordinates>\n";
-        file << "<DataArray type=\"Float32\" Name=\"X\" format=\"ascii\">\n";
+        // Координаты узлов: nx+1 по X, ny+1 по Y, 1 по Z
+        std::fprintf(fp, "<Coordinates>\n");
+
+        std::fprintf(fp, "<DataArray type=\"Float32\" Name=\"X\" "
+                         "NumberOfTuples=\"%d\" format=\"ascii\">\n", nx + 1);
         for (int_t i = 0; i <= nx; ++i) {
-            write_float(file, vmin.x + i * hx);
-            if ((i + 1) % 10 == 0 || i == nx) file << "\n"; else file << " ";
+            std::fprintf(fp, "%.6g", (double)(vmin.x + i * hx));
+            if ((i + 1) % 10 == 0 || i == nx) std::fprintf(fp, "\n");
+            else                               std::fprintf(fp, " ");
         }
-        file << "</DataArray>\n";
-        file << "<DataArray type=\"Float32\" Name=\"Y\" format=\"ascii\">\n";
-        for (int_t j = 0; j <= ny; ++j) {
-            write_float(file, vmin.y + j * hy);
-            if ((j + 1) % 10 == 0 || j == ny) file << "\n"; else file << " ";
-        }
-        file << "</DataArray>\n";
-        file << "<DataArray type=\"Float32\" Name=\"Z\" format=\"ascii\">\n0.0\n</DataArray>\n";
-        file << "</Coordinates>\n";
+        std::fprintf(fp, "</DataArray>\n");
 
-        file << "</Piece>\n</RectilinearGrid>\n</VTKFile>\n";
-        file.close();
+        std::fprintf(fp, "<DataArray type=\"Float32\" Name=\"Y\" "
+                         "NumberOfTuples=\"%d\" format=\"ascii\">\n", ny + 1);
+        for (int_t j = 0; j <= ny; ++j) {
+            std::fprintf(fp, "%.6g", (double)(vmin.y + j * hy));
+            if ((j + 1) % 10 == 0 || j == ny) std::fprintf(fp, "\n");
+            else                               std::fprintf(fp, " ");
+        }
+        std::fprintf(fp, "</DataArray>\n");
+
+        std::fprintf(fp, "<DataArray type=\"Float32\" Name=\"Z\" "
+                         "NumberOfTuples=\"1\" format=\"ascii\">\n0.0\n</DataArray>\n");
+        std::fprintf(fp, "</Coordinates>\n");
+
+        std::fprintf(fp, "</Piece>\n</RectilinearGrid>\n</VTKFile>\n");
+        std::fclose(fp);
     }
 
     static void writePVD(int nSteps, const std::string& pvdName = "output.pvd") {
