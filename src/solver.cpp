@@ -1,6 +1,8 @@
 #include "Solver.hpp"
 #include "HeatKernel.hpp"
 #include <cmath>
+#include <algorithm>
+#include <limits>
 
 // ============================================================================
 // Конструктор Solver.
@@ -147,11 +149,25 @@ void Solver::solve(int total_steps, int save_every) {
         if (step % save_every == 0) {
             if (use_gpu) gpu_mesh.download_T(mesh);
 
+            // Диагностика: проверяем температуру на nan/inf/взрыв
+            if (mpi_rank == 0) {
+                float_t* T = mesh.get_T_curr();
+                int ncells = mesh.get_ncells();
+                float_t T_min = T[0], T_max = T[0];
+                int nan_count = 0;
+                for (int c = 0; c < ncells; ++c) {
+                    if (std::isnan(T[c]) || std::isinf(T[c])) { ++nan_count; continue; }
+                    if (T[c] < T_min) T_min = T[c];
+                    if (T[c] > T_max) T_max = T[c];
+                }
+                std::cout << "Step " << step << ": T_min=" << T_min
+                          << " T_max=" << T_max;
+                if (nan_count > 0) std::cout << " NaN/Inf=" << nan_count;
+                std::cout << "\n";
+            }
+
             if (mpi_rank == 0)
                 VTKWriter::save(&mesh, saved++);
-
-            if (mpi_rank == 0 && step % (save_every * 10) == 0)
-                std::cout << "Step " << step << "/" << total_steps << "\n";
         }
     }
 
