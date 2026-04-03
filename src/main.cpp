@@ -66,7 +66,7 @@ int main(int argc, char** argv) {
               Float3(0.0f, y_min, 0.0f),
               Float3(10.0f, y_max, 0.0f));
 
-    Solver solver(mesh, 1.0f, use_gpu, decomp.rank, decomp.size);
+    Solver solver(mesh, 1.0f, use_gpu, &decomp);
 
     solver.solve(400, 10);
 

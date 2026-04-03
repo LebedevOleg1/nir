@@ -9,10 +9,13 @@
 // Это единственный «тяжёлый» cudaMemcpy за весь запуск — дальше данные
 // живут на GPU и обратно копируются только для VTK-вывода.
 // ============================================================================
-Solver::Solver(Mesh& mesh_, float_t alpha_, bool use_gpu_, int rank, int size)
-    : mesh(mesh_), alpha(alpha_), use_gpu(use_gpu_),
-      mpi_rank(rank), mpi_size(size)
+Solver::Solver(Mesh& mesh_, float_t alpha_, bool use_gpu_, MpiDecomp* decomp_)
+    : mesh(mesh_), alpha(alpha_), use_gpu(use_gpu_), decomp(decomp_)
 {
+    if (decomp) {
+        mpi_rank = decomp->rank;
+        mpi_size = decomp->size;
+    }
     if (use_gpu) {
         gpu_mesh.upload(mesh);
     }
@@ -130,6 +133,15 @@ void Solver::solve(int total_steps, int save_every) {
             step_gpu();
         } else {
             step_cpu();
+        }
+
+        // Обмен ghost-строками между MPI-ранками
+        if (decomp && mpi_size > 1) {
+            if (use_gpu) gpu_mesh.download_T(mesh);
+            int local_ny_with_ghosts = mesh.get_ny() + 2;
+            decomp->exchange_halos(mesh.get_T_curr(),
+                                   mesh.get_nx(), local_ny_with_ghosts);
+            if (use_gpu) gpu_mesh.upload(mesh);
         }
 
         if (step % save_every == 0) {

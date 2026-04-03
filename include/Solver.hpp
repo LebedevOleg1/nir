@@ -1,6 +1,7 @@
 #pragma once
 #include "Mesh.hpp"
 #include "GpuMesh.hpp"
+#include "MpiDecomp.hpp"
 #include "VTKWriter.hpp"
 #include <iostream>
 #include <chrono>
@@ -23,6 +24,7 @@ class Solver {
 private:
     Mesh& mesh;           // CPU-сетка (данные живут в оперативной памяти)
     GpuMesh gpu_mesh;     // GPU-сетка (данные живут в видеопамяти)
+    MpiDecomp* decomp;    // MPI-декомпозиция (для halo exchange)
 
     float_t alpha;        // коэффициент температуропроводности
     float_t dt;           // шаг по времени (вычисляется из CFL)
@@ -42,7 +44,7 @@ private:
 
 public:
     Solver(Mesh& mesh_, float_t alpha_, bool use_gpu_,
-           int rank = 0, int size = 1);
+           MpiDecomp* decomp_ = nullptr);
 
     // Основной цикл решения
     void solve(int total_steps, int save_every);
