@@ -1,70 +1,87 @@
 #pragma once
 #include <string>
-#include <fstream>
-#include <iomanip>
 #include <cstdio>
+#include <cstring>
 #include "Mesh.hpp"
 
 class VTKWriter {
 public:
-    static std::string make_vtr_name(int step) {
+    // Byte-swap float для big-endian (VTK legacy binary = big-endian)
+    static float swap_float(float val) {
+        float result;
+        char* src = reinterpret_cast<char*>(&val);
+        char* dst = reinterpret_cast<char*>(&result);
+        dst[0] = src[3];
+        dst[1] = src[2];
+        dst[2] = src[1];
+        dst[3] = src[0];
+        return result;
+    }
+
+    static std::string make_vtk_name(int step) {
         char buf[64];
-        std::snprintf(buf, sizeof(buf), "output_%04d.vtr", step);
+        std::snprintf(buf, sizeof(buf), "output_%04d.vtk", step);
         return std::string(buf);
     }
 
     static void save(Mesh* mesh, int step) {
-        std::string filename = make_vtr_name(step);
-        std::ofstream file(filename);
-        file << std::setprecision(6);
+        std::string filename = make_vtk_name(step);
+        FILE* fp = std::fopen(filename.c_str(), "wb");
+        if (!fp) return;
 
         const int_t nx = mesh->get_nx();
         const int_t ny = mesh->get_ny();
         const Float3 vmin = mesh->get_vmin();
+        const float_t hx = mesh->get_hx();
+        const float_t hy = mesh->get_hy();
 
-        file << "<?xml version=\"1.0\"?>\n";
-        file << "<VTKFile type=\"RectilinearGrid\" version=\"0.1\" byte_order=\"LittleEndian\">\n";
-        // Extent: nx×ny точек (каждая точка = центр ячейки FVM)
-        file << "<RectilinearGrid WholeExtent=\"0 " << nx-1 << " 0 " << ny-1 << " 0 0\">\n";
-        file << "<Piece Extent=\"0 " << nx-1 << " 0 " << ny-1 << " 0 0\">\n";
+        // Header (ASCII)
+        std::fprintf(fp, "# vtk DataFile Version 3.0\n");
+        std::fprintf(fp, "Heat2D step %d\n", step);
+        std::fprintf(fp, "BINARY\n");
+        std::fprintf(fp, "DATASET RECTILINEAR_GRID\n");
+        std::fprintf(fp, "DIMENSIONS %d %d 1\n", nx, ny);
 
-        // PointData: ровно nx*ny значений — одно на ячейку
-        file << "<PointData Scalars=\"Temperature\">\n";
-        file << "<DataArray Name=\"Temperature\" type=\"Float32\" format=\"ascii\">\n";
-        float_t* T = mesh->get_T_curr();
-        for (int_t j = 0; j < ny; ++j) {
-            for (int_t i = 0; i < nx; ++i) {
-                file << T[mesh->idx(i, j)] << " ";
-            }
-            file << "\n";
+        // X coordinates (binary, big-endian)
+        std::fprintf(fp, "X_COORDINATES %d float\n", nx);
+        for (int_t i = 0; i < nx; ++i) {
+            float v = swap_float(vmin.x + (i + 0.5f) * hx);
+            std::fwrite(&v, sizeof(float), 1, fp);
         }
-        file << "</DataArray>\n</PointData>\n";
+        std::fprintf(fp, "\n");
 
-        // Координаты — центры ячеек
-        file << "<Coordinates>\n";
-        file << "<DataArray type=\"Float32\" Name=\"X\">\n";
-        for (int_t i = 0; i < nx; ++i) file << vmin.x + (i + 0.5f) * mesh->get_hx() << " ";
-        file << "\n</DataArray>\n";
-        file << "<DataArray type=\"Float32\" Name=\"Y\">\n";
-        for (int_t j = 0; j < ny; ++j) file << vmin.y + (j + 0.5f) * mesh->get_hy() << " ";
-        file << "\n</DataArray>\n";
-        file << "<DataArray type=\"Float32\" Name=\"Z\">\n0.0\n</DataArray>\n";
-        file << "</Coordinates>\n";
+        // Y coordinates
+        std::fprintf(fp, "Y_COORDINATES %d float\n", ny);
+        for (int_t j = 0; j < ny; ++j) {
+            float v = swap_float(vmin.y + (j + 0.5f) * hy);
+            std::fwrite(&v, sizeof(float), 1, fp);
+        }
+        std::fprintf(fp, "\n");
 
-        file << "</Piece>\n</RectilinearGrid>\n</VTKFile>";
-        file.close();
+        // Z coordinate
+        std::fprintf(fp, "Z_COORDINATES 1 float\n");
+        float z = swap_float(0.0f);
+        std::fwrite(&z, sizeof(float), 1, fp);
+        std::fprintf(fp, "\n");
+
+        // Temperature data
+        int_t npts = nx * ny;
+        std::fprintf(fp, "POINT_DATA %d\n", npts);
+        std::fprintf(fp, "SCALARS Temperature float 1\n");
+        std::fprintf(fp, "LOOKUP_TABLE default\n");
+
+        float_t* T = mesh->get_T_curr();
+        for (int_t c = 0; c < npts; ++c) {
+            float v = swap_float(T[c]);
+            std::fwrite(&v, sizeof(float), 1, fp);
+        }
+
+        std::fclose(fp);
     }
 
+    // Legacy .vtk файлы не нуждаются в PVD — ParaView автоматически
+    // группирует output_0000.vtk, output_0001.vtk, ... как time series.
     static void writePVD(int nSteps, const std::string& pvdName = "output.pvd") {
-        std::ofstream pvd(pvdName);
-        pvd << "<?xml version=\"1.0\"?>\n";
-        pvd << "<VTKFile type=\"Collection\" version=\"0.1\" byte_order=\"LittleEndian\">\n";
-        pvd << "<Collection>\n";
-        for (int s = 0; s < nSteps; ++s) {
-            std::string fname = make_vtr_name(s);
-            pvd << "<DataSet timestep=\"" << s << "\" group=\"\" part=\"0\" file=\"" << fname << "\"/>\n";
-        }
-        pvd << "</Collection>\n</VTKFile>\n";
-        pvd.close();
+        (void)nSteps; (void)pvdName;
     }
 };
