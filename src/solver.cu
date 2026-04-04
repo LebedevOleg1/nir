@@ -67,14 +67,15 @@ __global__ void euler_kernel(
     const int ncells,
     const int ncells_total,
     const float gamma,
-    const float dt)
+    const float dt,
+    const float gravity)
 {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     compute_cell_update_euler(
         i, U_curr, U_next, volumes,
         face_owner, face_neighbor, face_area, face_distance,
         face_nx, face_ny, cell_faces,
-        ncells, ncells_total, gamma, dt);
+        ncells, ncells_total, gamma, dt, gravity);
 }
 
 // ============================================================================
@@ -154,7 +155,7 @@ void Solver<PhysicsType::Euler>::step_gpu() {
         d_curr, d_next, d_vol,
         d_fo, d_fn, d_fa, d_fd,
         d_fnx, d_fny, d_cf,
-        n, nt, config.gamma, dt);
+        n, nt, config.gamma, dt, config.gravity);
 
     cudaDeviceSynchronize();
     gpu_state.swap_buffers();
