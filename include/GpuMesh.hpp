@@ -58,4 +58,12 @@ struct GpuMesh {
 
     // Поменять местами T_curr и T_next после шага по времени.
     void swap_buffers();
+
+    // Целевые halo-трансферы: копируют только граничные строки (8 KB вместо MB)
+    // download: строки 1 и real_ny из GPU → CPU (для MPI_Sendrecv)
+    void download_halo_rows(Mesh& mesh, int nx, int real_ny);
+    // upload: строки 0 и total_ny-1 из CPU → GPU (после MPI_Sendrecv)
+    void upload_halo_rows(const Mesh& mesh, int nx, int total_ny);
+    // Загрузить только T_curr из CPU в GPU
+    void upload_T(const Mesh& mesh);
 };

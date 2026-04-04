@@ -59,3 +59,29 @@ void GpuMesh::upload_source(const std::vector<float>& src) {
 void GpuMesh::swap_buffers() {
     T_curr.swap(T_next);
 }
+
+// Копируем граничные реальные строки GPU → CPU для MPI halo exchange
+void GpuMesh::download_halo_rows(Mesh& mesh, int nx, int real_ny) {
+    float* d_ptr = thrust::raw_pointer_cast(T_curr.data());
+    float* h_ptr = mesh.data.curr.T.data();
+    // Строка 1 (первая реальная) → CPU
+    cudaMemcpy(h_ptr + nx, d_ptr + nx, nx * sizeof(float), cudaMemcpyDeviceToHost);
+    // Строка real_ny (последняя реальная) → CPU
+    cudaMemcpy(h_ptr + real_ny * nx, d_ptr + real_ny * nx, nx * sizeof(float), cudaMemcpyDeviceToHost);
+}
+
+// Копируем ghost-строки CPU → GPU после MPI halo exchange
+void GpuMesh::upload_halo_rows(const Mesh& mesh, int nx, int total_ny) {
+    float* d_ptr = thrust::raw_pointer_cast(T_curr.data());
+    const float* h_ptr = mesh.data.curr.T.data();
+    // Строка 0 (ghost bottom) → GPU
+    cudaMemcpy(d_ptr, h_ptr, nx * sizeof(float), cudaMemcpyHostToDevice);
+    // Строка total_ny-1 (ghost top) → GPU
+    cudaMemcpy(d_ptr + (total_ny - 1) * nx, h_ptr + (total_ny - 1) * nx,
+               nx * sizeof(float), cudaMemcpyHostToDevice);
+}
+
+// Загрузить T_curr целиком из CPU в GPU
+void GpuMesh::upload_T(const Mesh& mesh) {
+    T_curr = mesh.data.curr.T;
+}

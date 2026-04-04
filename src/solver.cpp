@@ -3,14 +3,8 @@
 #include <cmath>
 #include <algorithm>
 #include <limits>
+#include <mpi.h>
 
-// ============================================================================
-// Конструктор Solver.
-//
-// Если use_gpu=true, загружаем всю сетку в видеопамять через GpuMesh::upload.
-// Это единственный «тяжёлый» cudaMemcpy за весь запуск — дальше данные
-// живут на GPU и обратно копируются только для VTK-вывода.
-// ============================================================================
 Solver::Solver(Mesh& mesh_, float_t alpha_, bool use_gpu_, MpiDecomp* decomp_)
     : mesh(mesh_), alpha(alpha_), use_gpu(use_gpu_), decomp(decomp_)
 {
@@ -23,15 +17,6 @@ Solver::Solver(Mesh& mesh_, float_t alpha_, bool use_gpu_, MpiDecomp* decomp_)
     }
 }
 
-// ============================================================================
-// compute_max_dt — условие CFL для устойчивости явной схемы.
-//
-// Для уравнения диффузии ∂T/∂t = α∇²T на равномерной сетке:
-//   dt_max = h² / (4α)  (в 2D)
-// Берём 0.25 * min(distance²) / alpha с запасом (коэффициент 0.25 < 0.5).
-// Если dt > dt_max, схема Эйлера «взрывается» — температура осциллирует
-// и уходит в бесконечность.
-// ============================================================================
 float_t Solver::compute_max_dt() const {
     float_t min_dist_sq = 1e10f;
     for (int_t fi = 0; fi < mesh.faces.count; ++fi) {
@@ -41,17 +26,16 @@ float_t Solver::compute_max_dt() const {
     return 0.25f * min_dist_sq / alpha;
 }
 
-// ============================================================================
-// update_dynamic_source — задаёт пространственно-временной источник тепла.
-//
-// Гауссов «пятачок» радиуса 0.5 в центре области (5,5), модулированный
-// синусоидой по времени. Моделирует, например, лазерный нагрев с
-// переменной мощностью.
-// ============================================================================
 void Solver::update_dynamic_source(float_t power, float_t time) {
     Float3 source_pos(5.0f, 5.0f, 0.0f);
     float_t radius = 0.5f;
-    for (int_t c = 0; c < mesh.get_ncells(); ++c) {
+
+    // В MPI-режиме пропускаем ghost-строки (j=0 и j=ny-1)
+    int_t nx = mesh.get_nx();
+    int_t start = mesh.is_mpi_mode() ? nx : 0;
+    int_t end   = mesh.is_mpi_mode() ? mesh.get_ncells() - nx : mesh.get_ncells();
+
+    for (int_t c = start; c < end; ++c) {
         Float3 pos = mesh.centers[c];
         float_t dist_sq = (pos.x - source_pos.x)*(pos.x - source_pos.x) +
                           (pos.y - source_pos.y)*(pos.y - source_pos.y);
@@ -63,14 +47,69 @@ void Solver::update_dynamic_source(float_t power, float_t time) {
     }
 }
 
-// ============================================================================
-// step_cpu — один шаг по времени на CPU.
-//
-// OpenMP параллелизм: каждый поток обрабатывает свой диапазон ячеек.
-// calculate_heat_flux_core — inline-функция, общая для CPU и GPU (из
-// HeatKernel.hpp), только на CPU она вызывается из обычного for-цикла,
-// а на GPU — из CUDA-ядра (__global__ функции).
-// ============================================================================
+void Solver::do_halo_exchange() {
+    if (!decomp || mpi_size <= 1) return;
+
+    int nx = mesh.get_nx();
+    int total_ny = mesh.get_ny();
+    int real_ny = mesh.get_real_ny();
+
+    if (use_gpu) {
+        // GPU → CPU (только 2 граничные строки)
+        gpu_mesh.download_halo_rows(mesh, nx, real_ny);
+        // MPI обмен
+        decomp->exchange_halos(mesh.get_T_curr(), nx, total_ny);
+        // CPU → GPU (только 2 ghost-строки)
+        gpu_mesh.upload_halo_rows(mesh, nx, total_ny);
+    } else {
+        decomp->exchange_halos(mesh.get_T_curr(), nx, total_ny);
+    }
+}
+
+void Solver::gather_and_save_vtk(int step_index) {
+    if (mpi_size <= 1) {
+        // Одиночный ранк — пишем напрямую (без ghost, т.к. их нет)
+        VTKWriter::save(&mesh, step_index);
+        return;
+    }
+
+    int nx = mesh.get_nx();
+    int real_ny = mesh.get_real_ny();
+    int local_count = nx * real_ny;
+
+    // Извлекаем реальные строки (без ghost) из локального T
+    std::vector<float> local_T(local_count);
+    float_t* T = mesh.get_T_curr();
+    // Реальные данные: строки 1..real_ny (пропускаем ghost строку 0)
+    std::memcpy(local_T.data(), T + nx, local_count * sizeof(float));
+
+    // Собираем размеры с каждого ранка
+    std::vector<int> counts(mpi_size), displs(mpi_size);
+    MPI_Gather(&local_count, 1, MPI_INT, counts.data(), 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+    if (mpi_rank == 0) {
+        displs[0] = 0;
+        for (int r = 1; r < mpi_size; ++r)
+            displs[r] = displs[r-1] + counts[r-1];
+        int global_total = displs[mpi_size-1] + counts[mpi_size-1];
+        int global_ny = global_total / nx;
+
+        std::vector<float> global_T(global_total);
+        MPI_Gatherv(local_T.data(), local_count, MPI_FLOAT,
+                     global_T.data(), counts.data(), displs.data(), MPI_FLOAT,
+                     0, MPI_COMM_WORLD);
+
+        float_t hy_global = 10.0f / static_cast<float_t>(global_ny);
+        VTKWriter::save_raw(global_T.data(), nx, global_ny,
+                            Float3(0.0f, 0.0f, 0.0f),
+                            mesh.get_hx(), hy_global, step_index);
+    } else {
+        MPI_Gatherv(local_T.data(), local_count, MPI_FLOAT,
+                     nullptr, nullptr, nullptr, MPI_FLOAT,
+                     0, MPI_COMM_WORLD);
+    }
+}
+
 void Solver::step_cpu() {
     int ncells = mesh.get_ncells();
 
@@ -98,16 +137,6 @@ void Solver::step_cpu() {
     mesh.data.swap_buffers();
 }
 
-// ============================================================================
-// solve — главный цикл по времени.
-//
-// 1) Вычисляем dt из CFL
-// 2) На каждом шаге: обновляем источник → делаем шаг (CPU или GPU) → сохраняем VTK
-// 3) В конце выводим время и скорость (steps/s)
-//
-// При GPU: источник загружается в видеопамять через thrust (upload_source),
-// а температура скачивается обратно (download_T) только для VTK-вывода.
-// ============================================================================
 void Solver::solve(int total_steps, int save_every) {
     if (use_gpu) {
         if (mpi_rank == 0)
@@ -119,9 +148,14 @@ void Solver::solve(int total_steps, int save_every) {
 
     dt = 0.5f * compute_max_dt();
 
-    int saved = 0;
     if (mpi_rank == 0)
-        VTKWriter::save(&mesh, saved++);
+        std::cout << "dt=" << dt << " mpi_size=" << mpi_size << "\n";
+
+    // Начальный halo exchange (заполнить ghost-строки перед первым шагом)
+    do_halo_exchange();
+
+    int saved = 0;
+    gather_and_save_vtk(saved++);
 
     auto t_start = std::chrono::high_resolution_clock::now();
 
@@ -137,19 +171,13 @@ void Solver::solve(int total_steps, int save_every) {
             step_cpu();
         }
 
-        // Обмен ghost-строками между MPI-ранками
-        if (decomp && mpi_size > 1) {
-            if (use_gpu) gpu_mesh.download_T(mesh);
-            int local_ny_with_ghosts = mesh.get_ny() + 2;
-            decomp->exchange_halos(mesh.get_T_curr(),
-                                   mesh.get_nx(), local_ny_with_ghosts);
-            if (use_gpu) gpu_mesh.upload(mesh);
-        }
+        // Halo exchange после каждого шага
+        do_halo_exchange();
 
         if (step % save_every == 0) {
             if (use_gpu) gpu_mesh.download_T(mesh);
 
-            // Диагностика: проверяем температуру на nan/inf/взрыв
+            // Диагностика
             if (mpi_rank == 0) {
                 float_t* T = mesh.get_T_curr();
                 int ncells = mesh.get_ncells();
@@ -166,12 +194,9 @@ void Solver::solve(int total_steps, int save_every) {
                 std::cout << "\n";
             }
 
-            if (mpi_rank == 0)
-                VTKWriter::save(&mesh, saved++);
+            gather_and_save_vtk(saved++);
         }
     }
-
-    if (use_gpu) gpu_mesh.download_T(mesh);
 
     auto t_end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> dur = t_end - t_start;
@@ -180,7 +205,4 @@ void Solver::solve(int total_steps, int save_every) {
         std::cout << "Done! Time: " << dur.count() << "s | Speed: "
                   << (total_steps / dur.count()) << " steps/s\n";
     }
-
-    if (mpi_rank == 0)
-        VTKWriter::writePVD(saved);
 }
