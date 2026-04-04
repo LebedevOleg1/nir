@@ -3,6 +3,7 @@
 #include <cstring>
 #include <cstdlib>
 #include <sstream>
+#include <algorithm>
 
 static BCType parse_bc_type(const std::string& s) {
     // Extract type before ':'
@@ -86,6 +87,7 @@ SimConfig parse_cli(int argc, char** argv) {
         else if (arg.rfind("--bc-bottom=", 0) == 0)  cfg.bc[(int)Boundary::Bottom] = parse_bc(val);
         else if (arg.rfind("--bc-top=", 0) == 0)     cfg.bc[(int)Boundary::Top]    = parse_bc(val);
         else if (arg.rfind("--source=", 0) == 0)     cfg.source = parse_source(val);
+        else if (arg.rfind("--ic=", 0) == 0)         cfg.ic = val;
         else if (arg.rfind("--inlet-rho=", 0) == 0) {
             cfg.bc[(int)Boundary::Left].inlet_rho = std::stof(val);
             cfg.bc[(int)Boundary::Right].inlet_rho = std::stof(val);
@@ -146,7 +148,7 @@ void print_config(const SimConfig& cfg, int rank) {
     if (cfg.physics == PhysicsType::Heat || cfg.physics == PhysicsType::Diffusion)
         std::cout << "kappa=" << cfg.kappa << "\n";
     if (cfg.physics == PhysicsType::Euler)
-        std::cout << "gamma=" << cfg.gamma << "\n";
+        std::cout << "gamma=" << cfg.gamma << " | IC=" << cfg.ic << "\n";
     if (cfg.source.type != "none")
         std::cout << "Source: " << cfg.source.type
                   << " at (" << cfg.source.x << "," << cfg.source.y

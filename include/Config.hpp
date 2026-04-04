@@ -33,6 +33,9 @@ struct SimConfig {
     // Euler
     float gamma = 1.4f;
 
+    // Initial conditions
+    std::string ic = "default";  // "default", "sod", "blast"
+
     // Source
     SourceSpec source;
 };

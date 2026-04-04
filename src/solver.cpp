@@ -45,19 +45,67 @@ void Solver<P>::set_initial_conditions() {
         // Dirichlet BCs will set boundary values via ghost cells
     }
     else if constexpr (P == PhysicsType::Euler) {
-        // Default: uniform state from inlet BC (or rho=1, p=1, v=0)
-        const BCSpec& inlet = config.bc[(int)Boundary::Left];
-        float rho0 = inlet.inlet_rho;
-        float u0   = inlet.inlet_u;
-        float v0   = inlet.inlet_v;
-        float p0   = inlet.inlet_p;
-        float E0   = p0 / (config.gamma - 1.0f) + 0.5f * rho0 * (u0*u0 + v0*v0);
+        int nx = mesh.get_nx();
+        float gamma = config.gamma;
 
-        for (int i = 0; i < ncells; ++i) {
-            state.curr[0 * ncells_total + i] = rho0;
-            state.curr[1 * ncells_total + i] = rho0 * u0;
-            state.curr[2 * ncells_total + i] = rho0 * v0;
-            state.curr[3 * ncells_total + i] = E0;
+        if (config.ic == "sod") {
+            // Sod shock tube: discontinuity at x = domain_midpoint
+            // Left:  rho=1.0, u=0, v=0, p=1.0
+            // Right: rho=0.125, u=0, v=0, p=0.1
+            float x_mid = (mesh.get_vmin().x + mesh.get_vmax().x) * 0.5f;
+            // In MPI mode, use global midpoint
+            if (mesh.is_mpi_mode()) x_mid = 5.0f;
+
+            for (int i = 0; i < ncells; ++i) {
+                float x = mesh.centers[i].x;
+                float rho, u, v, p;
+                if (x < x_mid) {
+                    rho = 1.0f; u = 0.0f; v = 0.0f; p = 1.0f;
+                } else {
+                    rho = 0.125f; u = 0.0f; v = 0.0f; p = 0.1f;
+                }
+                float E = p / (gamma - 1.0f) + 0.5f * rho * (u*u + v*v);
+                state.curr[0 * ncells_total + i] = rho;
+                state.curr[1 * ncells_total + i] = rho * u;
+                state.curr[2 * ncells_total + i] = rho * v;
+                state.curr[3 * ncells_total + i] = E;
+            }
+        }
+        else if (config.ic == "blast") {
+            // Circular blast wave: high pressure in center, low outside
+            float cx = (mesh.get_vmin().x + mesh.get_vmax().x) * 0.5f;
+            float cy = (mesh.get_vmin().y + mesh.get_vmax().y) * 0.5f;
+            float r_blast = 0.1f * (mesh.get_vmax().x - mesh.get_vmin().x);
+
+            for (int i = 0; i < ncells; ++i) {
+                float x = mesh.centers[i].x;
+                float y = mesh.centers[i].y;
+                float dist = std::sqrt((x-cx)*(x-cx) + (y-cy)*(y-cy));
+                float rho = 1.0f;
+                float u = 0.0f, v = 0.0f;
+                float p = (dist < r_blast) ? 10.0f : 0.1f;
+                float E = p / (gamma - 1.0f) + 0.5f * rho * (u*u + v*v);
+                state.curr[0 * ncells_total + i] = rho;
+                state.curr[1 * ncells_total + i] = rho * u;
+                state.curr[2 * ncells_total + i] = rho * v;
+                state.curr[3 * ncells_total + i] = E;
+            }
+        }
+        else {
+            // Default: uniform state from inlet BC
+            const BCSpec& inlet = config.bc[(int)Boundary::Left];
+            float rho0 = inlet.inlet_rho;
+            float u0   = inlet.inlet_u;
+            float v0   = inlet.inlet_v;
+            float p0   = inlet.inlet_p;
+            float E0 = p0 / (gamma - 1.0f) + 0.5f * rho0 * (u0*u0 + v0*v0);
+
+            for (int i = 0; i < ncells; ++i) {
+                state.curr[0 * ncells_total + i] = rho0;
+                state.curr[1 * ncells_total + i] = rho0 * u0;
+                state.curr[2 * ncells_total + i] = rho0 * v0;
+                state.curr[3 * ncells_total + i] = E0;
+            }
         }
     }
 }
