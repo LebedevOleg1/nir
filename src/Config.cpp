@@ -88,6 +88,7 @@ SimConfig parse_cli(int argc, char** argv) {
         else if (arg.rfind("--bc-top=", 0) == 0)     cfg.bc[(int)Boundary::Top]    = parse_bc(val);
         else if (arg.rfind("--source=", 0) == 0)     cfg.source = parse_source(val);
         else if (arg.rfind("--ic=", 0) == 0)         cfg.ic = val;
+        else if (arg.rfind("--gravity=", 0) == 0)    cfg.gravity = std::stof(val);
         else if (arg.rfind("--inlet-rho=", 0) == 0) {
             cfg.bc[(int)Boundary::Left].inlet_rho = std::stof(val);
             cfg.bc[(int)Boundary::Right].inlet_rho = std::stof(val);
@@ -147,8 +148,11 @@ void print_config(const SimConfig& cfg, int rank) {
               << " top=" << bc_name(cfg.bc[3].type) << "\n";
     if (cfg.physics == PhysicsType::Heat || cfg.physics == PhysicsType::Diffusion)
         std::cout << "kappa=" << cfg.kappa << "\n";
-    if (cfg.physics == PhysicsType::Euler)
-        std::cout << "gamma=" << cfg.gamma << " | IC=" << cfg.ic << "\n";
+    if (cfg.physics == PhysicsType::Euler) {
+        std::cout << "gamma=" << cfg.gamma << " | IC=" << cfg.ic;
+        if (cfg.gravity != 0.0f) std::cout << " | g=" << cfg.gravity;
+        std::cout << "\n";
+    }
     if (cfg.source.type != "none")
         std::cout << "Source: " << cfg.source.type
                   << " at (" << cfg.source.x << "," << cfg.source.y

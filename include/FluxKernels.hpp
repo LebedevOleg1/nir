@@ -104,7 +104,8 @@ HD FORCE_INLINE void compute_cell_update_euler(
     const int ncells,
     const int ncells_total,
     const float gamma,
-    const float dt
+    const float dt,
+    const float gravity = 0.0f
 ) {
     if (i >= ncells) return;
 
@@ -153,8 +154,12 @@ HD FORCE_INLINE void compute_cell_update_euler(
     }
 
     float inv_vol = 1.0f / volumes[i];
+    float v_c = rhov_c / rho_c;
+
     U_next[0 * ncells_total + i] = rho_c  - dt * flux_rho  * inv_vol;
     U_next[1 * ncells_total + i] = rhou_c - dt * flux_rhou * inv_vol;
-    U_next[2 * ncells_total + i] = rhov_c - dt * flux_rhov * inv_vol;
-    U_next[3 * ncells_total + i] = E_c    - dt * flux_E    * inv_vol;
+    // Gravity source: d(rho*v)/dt += -rho*g (gravity in -y direction)
+    U_next[2 * ncells_total + i] = rhov_c - dt * flux_rhov * inv_vol - dt * rho_c * gravity;
+    // Energy source: d(E)/dt += -rho*g*v (work done by gravity)
+    U_next[3 * ncells_total + i] = E_c    - dt * flux_E    * inv_vol - dt * rho_c * gravity * v_c;
 }

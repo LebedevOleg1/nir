@@ -91,6 +91,86 @@ void Solver<P>::set_initial_conditions() {
                 state.curr[3 * ncells_total + i] = E;
             }
         }
+        else if (config.ic == "kh") {
+            // Kelvin-Helmholtz instability with smooth tanh interface.
+            // Uses GLOBAL coordinates so MPI decomposition works correctly.
+            // Global domain is [0, Lx_global] x [0, Ly_global].
+            float Lx_global = 10.0f;  // from main.cpp: x ∈ [0, 10]
+            float Ly_global = 10.0f;  // from main.cpp: y ∈ [0, 10]
+            float p0 = 2.5f;
+            float pi = 3.14159265f;
+            float delta = 0.05f * Ly_global;  // interface width
+
+            // Global interface positions
+            float y1 = 0.25f * Ly_global;  // = 2.5
+            float y2 = 0.75f * Ly_global;  // = 7.5
+
+            for (int i = 0; i < ncells; ++i) {
+                float x = mesh.centers[i].x;
+                float y = mesh.centers[i].y;
+
+                // Smooth tanh transitions at global y1 and y2
+                float s1 = 0.5f * (1.0f + std::tanh((y - y1) / delta));
+                float s2 = 0.5f * (1.0f + std::tanh((y - y2) / delta));
+                float frac = s1 * (1.0f - s2);  // ~1 in middle, ~0 outside
+
+                float rho = 1.0f + frac;  // 1 outside, 2 in middle
+                float u   = -0.5f + frac;  // -0.5 outside, +0.5 in middle
+
+                // Strong multi-mode perturbation in v near interfaces
+                float v = 0.1f * std::sin(2.0f * pi * x / Lx_global)
+                        + 0.1f * std::sin(4.0f * pi * x / Lx_global)
+                        + 0.05f * std::sin(6.0f * pi * x / Lx_global);
+                float env1 = std::exp(-(y - y1)*(y - y1) / (2.0f*delta*delta));
+                float env2 = std::exp(-(y - y2)*(y - y2) / (2.0f*delta*delta));
+                v *= (env1 + env2);
+
+                float E = p0 / (gamma - 1.0f) + 0.5f * rho * (u*u + v*v);
+                state.curr[0 * ncells_total + i] = rho;
+                state.curr[1 * ncells_total + i] = rho * u;
+                state.curr[2 * ncells_total + i] = rho * v;
+                state.curr[3 * ncells_total + i] = E;
+            }
+        }
+        else if (config.ic == "rt") {
+            // Rayleigh-Taylor instability: heavy fluid on top, light below.
+            // Requires --gravity=N (e.g. --gravity=1) to drive the instability.
+            // Uses GLOBAL coordinates for MPI compatibility.
+            float Lx_global = 10.0f;
+            float Ly_global = 10.0f;
+            float y_mid = 0.5f * Ly_global;  // = 5.0
+            float g = config.gravity > 0 ? config.gravity : 1.0f;
+
+            for (int i = 0; i < ncells; ++i) {
+                float x = mesh.centers[i].x;
+                float y = mesh.centers[i].y;
+
+                // Smooth density interface at y_mid
+                float delta = 0.05f * Ly_global;
+                float rho = 1.5f + 0.5f * std::tanh((y - y_mid) / delta);
+                // rho ≈ 1 below, ≈ 2 above
+
+                float u = 0.0f;
+                // Multi-mode perturbation at interface
+                float pi = 3.14159265f;
+                float env = std::exp(-(y - y_mid)*(y - y_mid) / (2.0f*delta*delta));
+                float v = env * 0.01f * (
+                    std::sin(2.0f * pi * x / Lx_global) +
+                    std::sin(4.0f * pi * x / Lx_global) +
+                    0.5f * std::sin(6.0f * pi * x / Lx_global));
+
+                // Hydrostatic pressure: dp/dy = -rho*g
+                // Integrate from top: p(y) = p_top + integral_y^y_top rho*g dy
+                // Approximate: p = p_ref + rho * g * (y_top - y)
+                float p = 10.0f + rho * g * (Ly_global - y);
+
+                float E = p / (gamma - 1.0f) + 0.5f * rho * (u*u + v*v);
+                state.curr[0 * ncells_total + i] = rho;
+                state.curr[1 * ncells_total + i] = rho * u;
+                state.curr[2 * ncells_total + i] = rho * v;
+                state.curr[3 * ncells_total + i] = E;
+            }
+        }
         else {
             // Default: uniform state from inlet BC
             const BCSpec& inlet = config.bc[(int)Boundary::Left];
@@ -269,7 +349,7 @@ void Solver<P>::step_cpu() {
                 i, U_curr, U_next, vols,
                 f_owner, f_neighbor, f_area, f_distance,
                 fnx, fny, cf,
-                ncells, ncells_total, config.gamma, dt);
+                ncells, ncells_total, config.gamma, dt, config.gravity);
         }
     }
 

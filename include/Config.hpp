@@ -34,7 +34,10 @@ struct SimConfig {
     float gamma = 1.4f;
 
     // Initial conditions
-    std::string ic = "default";  // "default", "sod", "blast"
+    std::string ic = "default";  // "default", "sod", "blast", "kh", "rt"
+
+    // Gravity (for Euler, in -y direction)
+    float gravity = 0.0f;
 
     // Source
     SourceSpec source;
