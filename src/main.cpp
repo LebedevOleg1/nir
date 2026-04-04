@@ -64,7 +64,8 @@ int main(int argc, char** argv) {
 
     Mesh mesh(global_nx, decomp.local_ny,
               Float3(0.0f, y_min, 0.0f),
-              Float3(10.0f, y_max, 0.0f));
+              Float3(10.0f, y_max, 0.0f),
+              decomp.size > 1);
 
     Solver solver(mesh, 1.0f, use_gpu, &decomp);
 

@@ -42,10 +42,12 @@ public:
     };
 
 private:
-    int_t nx, ny;
+    int_t nx, ny;        // ny включает ghost-строки в MPI-режиме
+    int_t real_ny;       // ny без ghost-строк (== ny если mpi_mode=false)
     int_t ncells;
     float_t hx, hy;
     Float3 v_min, v_max;
+    bool mpi_mode_;
 
 public:
     std::vector<Float3> centers;       // координаты центров ячеек
@@ -61,12 +63,14 @@ public:
 
     ExtState data;                     // двойной буфер температуры (curr/next)
 
-    Mesh(int_t nx_, int_t ny_, Float3 min, Float3 max);
+    Mesh(int_t nx_, int_t ny_, Float3 min, Float3 max, bool mpi_mode = false);
     ~Mesh() = default;
 
     int_t get_nx() const { return nx; }
     int_t get_ny() const { return ny; }
+    int_t get_real_ny() const { return real_ny; }
     int_t get_ncells() const { return ncells; }
+    bool is_mpi_mode() const { return mpi_mode_; }
     float_t get_hx() const { return hx; }
     float_t get_hy() const { return hy; }
     Float3 get_vmin() const { return v_min; }

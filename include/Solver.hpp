@@ -38,6 +38,8 @@ private:
     void step_cpu();
     void update_dynamic_source(float_t power, float_t time);
     float_t compute_max_dt() const;
+    void do_halo_exchange();
+    void gather_and_save_vtk(int step_index);
 
     // --- GPU-часть (solver.cu) ---
     void step_gpu();
