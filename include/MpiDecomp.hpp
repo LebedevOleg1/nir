@@ -57,7 +57,7 @@ struct MpiDecomp {
     //   отправляем нижнюю реальную строку → ghost_top соседа снизу
     //   получаем от соседа снизу его верхнюю строку → наш ghost_bottom
     //   аналогично сверху
-    void exchange_halos(float* T, int nx, int local_ny_with_ghosts);
+    void exchange_halos(float* T, int nx, int local_ny_with_ghosts, int nvar = 1, int ncells_total = 0);
 
     void finalize();
 };

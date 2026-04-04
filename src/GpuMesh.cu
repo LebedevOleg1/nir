@@ -1,87 +1,86 @@
 #include "GpuMesh.hpp"
 
 // ============================================================================
-// GpuMesh::upload — копирование CPU → GPU.
-//
-// thrust::device_vector при присваивании от std::vector автоматически:
-//   1) Вызывает cudaMalloc если размер не совпадает
-//   2) Вызывает cudaMemcpy(hostPtr, devicePtr, size, HostToDevice)
-// Поэтому весь upload — это просто присваивания.
+// GpuMesh::upload -- geometry only (no physics state)
 // ============================================================================
 void GpuMesh::upload(const Mesh& mesh) {
     ncells = mesh.get_ncells();
+    ncells_total = mesh.get_ncells_total();
     nfaces = mesh.faces.count;
 
-    // Температура: копируем начальное состояние в оба буфера
-    T_curr = mesh.data.curr.T;
-    T_next.resize(ncells, 0.0f);
-
-    // Геометрия ячеек
     volumes = mesh.volumes;
 
-    // Грани (SoA) — каждый массив копируется отдельно
     faces.owner    = mesh.faces.owner;
     faces.neighbor = mesh.faces.neighbor;
     faces.area     = mesh.faces.area;
+    faces.normal_x = mesh.faces.normal_x;
+    faces.normal_y = mesh.faces.normal_y;
     faces.distance = mesh.faces.distance;
 
-    // Связность ячейка→грани
     cell_faces = mesh.cell_faces;
-
-    // Физические поля
-    kappa_face = mesh.kappa_face;
-    source     = mesh.source;
+    face_boundary_id = mesh.face_boundary_id;
 }
 
 // ============================================================================
-// GpuMesh::download_T — копирование T_curr из GPU в CPU.
-//
-// thrust::copy из device_vector в host-итератор вызывает cudaMemcpy D→H.
-// Нужно для:
-//   - VTK-вывода (визуализация в ParaView)
-//   - MPI halo exchange (пока без CUDA-aware MPI)
+// GpuState<NVAR> -- physics state on GPU
 // ============================================================================
-void GpuMesh::download_T(Mesh& mesh) {
-    // thrust::copy выполняет cudaMemcpy Device→Host
-    thrust::copy(T_curr.begin(), T_curr.end(), mesh.data.curr.T.begin());
+template<int NVAR>
+void GpuState<NVAR>::upload(const float* cpu_curr, int n_total) {
+    ncells_total = n_total;
+    curr.assign(cpu_curr, cpu_curr + NVAR * n_total);
+    next.resize(NVAR * n_total, 0.0f);
 }
 
-void GpuMesh::upload_source(const std::vector<float>& src) {
-    source = src;  // автоматический cudaMemcpy H→D через thrust
+template<int NVAR>
+void GpuState<NVAR>::download(float* cpu_curr, int n_total) {
+    thrust::copy(curr.begin(), curr.begin() + NVAR * n_total, cpu_curr);
 }
 
-// ============================================================================
-// swap_buffers — обмен указателей T_curr ↔ T_next.
-//
-// thrust::device_vector::swap — O(1), меняет только внутренние указатели,
-// не копирует данные. Это стандартный паттерн «ping-pong buffer».
-// ============================================================================
-void GpuMesh::swap_buffers() {
-    T_curr.swap(T_next);
+template<int NVAR>
+void GpuState<NVAR>::upload_source(const std::vector<float>& src) {
+    source = src;
 }
 
-// Копируем граничные реальные строки GPU → CPU для MPI halo exchange
-void GpuMesh::download_halo_rows(Mesh& mesh, int nx, int real_ny) {
-    float* d_ptr = thrust::raw_pointer_cast(T_curr.data());
-    float* h_ptr = mesh.data.curr.T.data();
-    // Строка 1 (первая реальная) → CPU
-    cudaMemcpy(h_ptr + nx, d_ptr + nx, nx * sizeof(float), cudaMemcpyDeviceToHost);
-    // Строка real_ny (последняя реальная) → CPU
-    cudaMemcpy(h_ptr + real_ny * nx, d_ptr + real_ny * nx, nx * sizeof(float), cudaMemcpyDeviceToHost);
+template<int NVAR>
+void GpuState<NVAR>::swap_buffers() {
+    curr.swap(next);
 }
 
-// Копируем ghost-строки CPU → GPU после MPI halo exchange
-void GpuMesh::upload_halo_rows(const Mesh& mesh, int nx, int total_ny) {
-    float* d_ptr = thrust::raw_pointer_cast(T_curr.data());
-    const float* h_ptr = mesh.data.curr.T.data();
-    // Строка 0 (ghost bottom) → GPU
-    cudaMemcpy(d_ptr, h_ptr, nx * sizeof(float), cudaMemcpyHostToDevice);
-    // Строка total_ny-1 (ghost top) → GPU
-    cudaMemcpy(d_ptr + (total_ny - 1) * nx, h_ptr + (total_ny - 1) * nx,
-               nx * sizeof(float), cudaMemcpyHostToDevice);
+template<int NVAR>
+void GpuState<NVAR>::download_halo_rows(float* cpu_curr, int nx, int real_ny, int nvar) {
+    float* d_ptr = thrust::raw_pointer_cast(curr.data());
+    int ncells = ncells_total;  // includes ghosts
+    // For each variable, download rows 1 and real_ny
+    for (int v = 0; v < nvar; ++v) {
+        int offset = v * ncells;
+        // Row 1 (first real row)
+        cudaMemcpy(cpu_curr + offset + nx,
+                   d_ptr + offset + nx,
+                   nx * sizeof(float), cudaMemcpyDeviceToHost);
+        // Row real_ny (last real row)
+        cudaMemcpy(cpu_curr + offset + real_ny * nx,
+                   d_ptr + offset + real_ny * nx,
+                   nx * sizeof(float), cudaMemcpyDeviceToHost);
+    }
 }
 
-// Загрузить T_curr целиком из CPU в GPU
-void GpuMesh::upload_T(const Mesh& mesh) {
-    T_curr = mesh.data.curr.T;
+template<int NVAR>
+void GpuState<NVAR>::upload_halo_rows(const float* cpu_curr, int nx, int total_ny, int nvar) {
+    float* d_ptr = thrust::raw_pointer_cast(curr.data());
+    int ncells = ncells_total;
+    for (int v = 0; v < nvar; ++v) {
+        int offset = v * ncells;
+        // Row 0 (ghost bottom)
+        cudaMemcpy(d_ptr + offset,
+                   cpu_curr + offset,
+                   nx * sizeof(float), cudaMemcpyHostToDevice);
+        // Row total_ny-1 (ghost top)
+        cudaMemcpy(d_ptr + offset + (total_ny - 1) * nx,
+                   cpu_curr + offset + (total_ny - 1) * nx,
+                   nx * sizeof(float), cudaMemcpyHostToDevice);
+    }
 }
+
+// Explicit template instantiations
+template struct GpuState<1>;  // Heat, Diffusion
+template struct GpuState<4>;  // Euler

@@ -4,66 +4,51 @@
 #include <thrust/device_vector.h>
 
 // ============================================================================
-// GpuMesh — «GPU-близнец» класса Mesh.
-//
-// Хранит те же данные (грани, объёмы, температуру и т.д.), но в видеопамяти
-// GPU, используя thrust::device_vector. Это обёртка над cudaMalloc/cudaFree,
-// которая:
-//   1) Автоматически выделяет/освобождает GPU-память (RAII)
-//   2) При присваивании device_vector = std::vector делает cudaMemcpy H→D
-//   3) При thrust::copy(device → host) делает cudaMemcpy D→H
-//
-// Грани — SoA (отдельные массивы owner, neighbor, area, distance),
-// что даёт coalesced memory access на GPU.
-//
-// Для передачи в CUDA-ядра используем raw-указатели:
-//   thrust::raw_pointer_cast(vec.data())
-// потому что ядра (__global__ функции) не могут работать с thrust-объектами.
+// GpuMesh -- geometry-only GPU mirror of Mesh.
+// Physics state is in GpuState<NVAR> (separate).
 // ============================================================================
-
-// SoA-хранилище граней на GPU
 struct GpuFaces {
     thrust::device_vector<int>   owner;
     thrust::device_vector<int>   neighbor;
     thrust::device_vector<float> area;
+    thrust::device_vector<float> normal_x;
+    thrust::device_vector<float> normal_y;
     thrust::device_vector<float> distance;
 };
 
 struct GpuMesh {
-    // Двойной буфер температуры (ping-pong): на чётном шаге пишем curr→next,
-    // на нечётном — next→curr. swap_buffers() меняет их местами.
-    thrust::device_vector<float> T_curr;
-    thrust::device_vector<float> T_next;
-
     thrust::device_vector<float> volumes;
-    thrust::device_vector<float> kappa_face;
-    thrust::device_vector<float> source;
     thrust::device_vector<int>   cell_faces;
+    thrust::device_vector<int>   face_boundary_id;
 
     GpuFaces faces;
 
     int ncells = 0;
+    int ncells_total = 0;
     int nfaces = 0;
 
-    // Загрузить все данные из CPU-сетки в GPU-память.
-    // Вызывается один раз при инициализации.
     void upload(const Mesh& mesh);
+};
 
-    // Скопировать текущую температуру T_curr обратно в CPU-сетку.
-    // Нужно для VTK-вывода и halo-обмена через MPI.
-    void download_T(Mesh& mesh);
+// ============================================================================
+// GpuState<NVAR> -- physics state on GPU.
+// SoA layout: U[var * ncells_total + cell].
+// Double-buffered (curr/next) for explicit time stepping.
+// ============================================================================
+template<int NVAR>
+struct GpuState {
+    thrust::device_vector<float> curr;  // NVAR * ncells_total
+    thrust::device_vector<float> next;  // NVAR * ncells_total
+    thrust::device_vector<float> source; // ncells (for heat/diffusion source term)
 
-    // Загрузить обновлённый источниковый член в GPU.
+    int ncells_total = 0;
+
+    void upload(const float* cpu_curr, int n_total);
+    void download(float* cpu_curr, int n_total);
     void upload_source(const std::vector<float>& src);
-
-    // Поменять местами T_curr и T_next после шага по времени.
     void swap_buffers();
 
-    // Целевые halo-трансферы: копируют только граничные строки (8 KB вместо MB)
-    // download: строки 1 и real_ny из GPU → CPU (для MPI_Sendrecv)
-    void download_halo_rows(Mesh& mesh, int nx, int real_ny);
-    // upload: строки 0 и total_ny-1 из CPU → GPU (после MPI_Sendrecv)
-    void upload_halo_rows(const Mesh& mesh, int nx, int total_ny);
-    // Загрузить только T_curr из CPU в GPU
-    void upload_T(const Mesh& mesh);
+    // Targeted halo transfers (MPI: only boundary rows)
+    void download_halo_rows(float* cpu_curr, int nx, int real_ny, int nvar);
+    void upload_halo_rows(const float* cpu_curr, int nx, int total_ny, int nvar);
 };

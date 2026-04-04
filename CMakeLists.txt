@@ -36,21 +36,21 @@ file(GLOB SOURCES
     "${CMAKE_SOURCE_DIR}/src/*.cu"
 )
 
-add_executable(heat ${SOURCES})
+add_executable(solver ${SOURCES})
 
 # --- Линковка ---
 
 # CUDA Runtime + device runtime (для dynamic parallelism если понадобится)
-target_link_libraries(heat PRIVATE CUDA::cudart)
-target_link_libraries(heat ${CUDA_LIBRARIES} ${CUDA_cudadevrt_LIBRARY})
+target_link_libraries(solver PRIVATE CUDA::cudart)
+target_link_libraries(solver ${CUDA_LIBRARIES} ${CUDA_cudadevrt_LIBRARY})
 
 # MPI
-target_link_libraries(heat PRIVATE MPI::MPI_CXX)
+target_link_libraries(solver PRIVATE MPI::MPI_CXX)
 
 # OpenMP
-target_link_libraries(heat PRIVATE OpenMP::OpenMP_CXX)
+target_link_libraries(solver PRIVATE OpenMP::OpenMP_CXX)
 
 # Math library (Linux)
 if(UNIX)
-    target_link_libraries(heat PRIVATE m)
+    target_link_libraries(solver PRIVATE m)
 endif()

@@ -1,83 +1,85 @@
 #pragma once
-#include "State.hpp"
+#include "Types.hpp"
+#include "BoundaryCondition.hpp"
 #include <vector>
 
 // ============================================================================
-// Mesh — конечно-объёмная сетка (FVM) для 2D прямоугольной области.
+// Mesh -- 2D rectangular FVM mesh (geometry only, no physics data).
 //
-// Грани хранятся в формате SoA (Structure of Arrays): каждое свойство грани
-// (owner, neighbor, area, ...) лежит в своём непрерывном массиве.
-// Это критично для GPU — потоки warp'а читают соседние элементы одного
-// массива, а не разбросанные поля структуры. Результат: coalesced memory
-// access, который в ~10x быстрее random access на GPU.
+// Faces stored as SoA for coalesced GPU access.
+// 4 faces per cell: left(0), right(1), bottom(2), top(3).
 //
-// Топология: каждая ячейка имеет ровно 4 грани (left, right, bottom, top).
-// cell_faces[cell*4 + k] даёт индекс k-й грани ячейки в массивах faces.
+// Boundary conditions:
+//   - Periodic: face neighbor wraps around (no ghost cells)
+//   - Non-periodic: ghost cells appended after real cells, boundary faces
+//     point to them. Ghost cell values set by apply_bcs() before each step.
+//
+// MPI ghost rows: when mpi_mode=true, rows j=0 and j=ny-1 are MPI ghost rows
+// (filled by halo exchange). Boundary ghost cells are separate and come after.
 // ============================================================================
 class Mesh {
 public:
-    // SoA-хранилище граней — «Structure of Arrays».
-    // Вместо vector<Face> (AoS) храним отдельные массивы для каждого поля.
-    // При обходе по одному полю (например, все owner) данные лежат подряд
-    // в памяти → кэш-линии используются на 100%, а на GPU каждый warp
-    // загружает один непрерывный блок.
     struct Faces {
-        std::vector<int_t>   owner;     // индекс ячейки-владельца грани
-        std::vector<int_t>   neighbor;  // индекс соседней ячейки через грань
-        std::vector<float_t> area;      // площадь грани (в 2D — длина ребра)
-        std::vector<Float3>  normal;    // единичная внешняя нормаль
-        std::vector<Float3>  centroid;  // координаты центра грани
-        std::vector<float_t> distance;  // расстояние между центрами owner и neighbor
-        int_t count = 0;               // количество граней
+        std::vector<int_t>   owner;
+        std::vector<int_t>   neighbor;
+        std::vector<float_t> area;
+        std::vector<float_t> normal_x;   // SoA: x-component of normal
+        std::vector<float_t> normal_y;   // SoA: y-component of normal
+        std::vector<float_t> distance;
+        int_t count = 0;
 
         void resize(int_t n) {
             count = n;
             owner.resize(n);
             neighbor.resize(n);
             area.resize(n);
-            normal.resize(n);
-            centroid.resize(n);
+            normal_x.resize(n);
+            normal_y.resize(n);
             distance.resize(n);
         }
     };
 
 private:
-    int_t nx, ny;        // ny включает ghost-строки в MPI-режиме
-    int_t real_ny;       // ny без ghost-строк (== ny если mpi_mode=false)
-    int_t ncells;
+    int_t nx, ny;        // ny includes MPI ghost rows if mpi_mode
+    int_t real_ny;       // ny without MPI ghost rows
+    int_t ncells;        // nx * ny (real + MPI ghost rows)
+    int_t ncells_total;  // ncells + boundary ghost cells
+    int_t n_ghost_bc;    // number of boundary ghost cells
     float_t hx, hy;
     Float3 v_min, v_max;
     bool mpi_mode_;
+    BCSpec bc_specs[4];  // left, right, bottom, top
 
 public:
-    std::vector<Float3> centers;       // координаты центров ячеек
-    std::vector<float_t> volumes;      // объёмы ячеек (в 2D — площади)
+    std::vector<Float3> centers;
+    std::vector<float_t> volumes;
 
-    std::vector<float_t> kappa;        // теплопроводность ячеек
-    std::vector<float_t> kappa_face;   // теплопроводность на гранях (гармоническое среднее)
-    std::vector<float_t> source;       // источниковый член q(x,y,t)
+    Faces faces;
+    std::vector<int_t> cell_faces;  // cell_faces[cell*4+k] = face index
 
-    Faces faces;                       // SoA-массивы граней
+    // Boundary info: for each face, which boundary it belongs to (-1 = interior)
+    // Indexed as Boundary enum: 0=Left, 1=Right, 2=Bottom, 3=Top
+    std::vector<int_t> face_boundary_id;
 
-    std::vector<int_t> cell_faces;     // cell_faces[cell*4+k] = индекс k-й грани
+    // For each boundary ghost cell: index of corresponding interior cell
+    std::vector<int_t> ghost_interior_map;
 
-    ExtState data;                     // двойной буфер температуры (curr/next)
-
-    Mesh(int_t nx_, int_t ny_, Float3 min, Float3 max, bool mpi_mode = false);
+    Mesh(int_t nx_, int_t ny_, Float3 min, Float3 max,
+         bool mpi_mode = false, const BCSpec bc[4] = nullptr);
     ~Mesh() = default;
 
     int_t get_nx() const { return nx; }
     int_t get_ny() const { return ny; }
     int_t get_real_ny() const { return real_ny; }
     int_t get_ncells() const { return ncells; }
+    int_t get_ncells_total() const { return ncells_total; }
+    int_t get_n_ghost_bc() const { return n_ghost_bc; }
     bool is_mpi_mode() const { return mpi_mode_; }
     float_t get_hx() const { return hx; }
     float_t get_hy() const { return hy; }
     Float3 get_vmin() const { return v_min; }
     Float3 get_vmax() const { return v_max; }
-
-    float_t* get_T_curr() { return data.curr.T.data(); }
-    float_t* get_T_next() { return data.next.T.data(); }
+    const BCSpec& get_bc(Boundary b) const { return bc_specs[(int)b]; }
 
     inline int_t cell_index(int_t i, int_t j) const { return j * nx + i; }
     inline int_t idx(int_t i, int_t j) const { return cell_index(i,j); }

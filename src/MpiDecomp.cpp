@@ -58,31 +58,38 @@ void MpiDecomp::init(int nx, int ny) {
 //
 // MPI_Sendrecv безопаснее пары Send+Recv: гарантирует отсутствие deadlock'ов.
 // ============================================================================
-void MpiDecomp::exchange_halos(float* T, int nx, int total_ny) {
+void MpiDecomp::exchange_halos(float* U, int nx, int total_ny, int nvar, int ncells_total_param) {
     int row_size = nx;
-    int local_rows = total_ny - 2;  // без ghost
-
-    // Указатели на строки:
-    float* ghost_bottom    = T;                             // строка 0
-    float* first_real_row  = T + row_size;                  // строка 1
-    float* last_real_row   = T + local_rows * row_size;     // строка local_ny
-    float* ghost_top       = T + (local_rows + 1) * row_size; // строка local_ny+1
+    int local_rows = total_ny - 2;  // without ghost rows
+    // For SoA layout: variable v is at U[v * stride + cell]
+    // stride = ncells_total (includes all cells including BC ghosts)
+    // If ncells_total_param not given, assume dense layout (nx * total_ny)
+    int stride = (ncells_total_param > 0) ? ncells_total_param : (nx * total_ny);
 
     MPI_Status status;
 
-    // 1) Отправляем нижнюю реальную строку вниз, получаем сверху → ghost_top
-    MPI_Sendrecv(
-        first_real_row, row_size, MPI_FLOAT, rank_below, 0,
-        ghost_top,      row_size, MPI_FLOAT, rank_above, 0,
-        comm, &status
-    );
+    for (int v = 0; v < nvar; ++v) {
+        float* base = U + v * stride;
 
-    // 2) Отправляем верхнюю реальную строку вверх, получаем снизу → ghost_bottom
-    MPI_Sendrecv(
-        last_real_row,  row_size, MPI_FLOAT, rank_above, 1,
-        ghost_bottom,   row_size, MPI_FLOAT, rank_below, 1,
-        comm, &status
-    );
+        float* ghost_bottom    = base;
+        float* first_real_row  = base + row_size;
+        float* last_real_row   = base + local_rows * row_size;
+        float* ghost_top       = base + (local_rows + 1) * row_size;
+
+        // Send bottom real row down, receive from above into ghost_top
+        MPI_Sendrecv(
+            first_real_row, row_size, MPI_FLOAT, rank_below, 0,
+            ghost_top,      row_size, MPI_FLOAT, rank_above, 0,
+            comm, &status
+        );
+
+        // Send top real row up, receive from below into ghost_bottom
+        MPI_Sendrecv(
+            last_real_row,  row_size, MPI_FLOAT, rank_above, 1,
+            ghost_bottom,   row_size, MPI_FLOAT, rank_below, 1,
+            comm, &status
+        );
+    }
 }
 
 void MpiDecomp::finalize() {
