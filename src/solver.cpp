@@ -1,89 +1,281 @@
 #include "Solver.hpp"
-#include "HeatKernel.hpp"
+#include "FluxKernels.hpp"
+#include "BCKernel.hpp"
+#include "EulerUtils.hpp"
 #include <cmath>
 #include <algorithm>
 #include <limits>
 #include <mpi.h>
+#include <cstring>
 
-Solver::Solver(Mesh& mesh_, float_t alpha_, bool use_gpu_, MpiDecomp* decomp_)
-    : mesh(mesh_), alpha(alpha_), use_gpu(use_gpu_), decomp(decomp_)
+// ============================================================================
+// Constructor
+// ============================================================================
+template<PhysicsType P>
+Solver<P>::Solver(Mesh& mesh_, const SimConfig& config_, MpiDecomp* decomp_)
+    : mesh(mesh_), config(config_), decomp(decomp_), use_gpu(config_.use_gpu)
 {
     if (decomp) {
         mpi_rank = decomp->rank;
         mpi_size = decomp->size;
     }
+
+    state.resize(mesh.get_ncells_total());
+    source.assign(mesh.get_ncells(), 0.0f);
+
+    set_initial_conditions();
+
     if (use_gpu) {
         gpu_mesh.upload(mesh);
+        gpu_state.upload(state.curr.data(), mesh.get_ncells_total());
+        gpu_state.upload_source(source);
     }
 }
 
-float_t Solver::compute_max_dt() const {
-    float_t min_dist_sq = 1e10f;
-    for (int_t fi = 0; fi < mesh.faces.count; ++fi) {
-        float_t d = mesh.faces.distance[fi];
-        if (d > 0 && d*d < min_dist_sq) min_dist_sq = d*d;
+// ============================================================================
+// Initial conditions
+// ============================================================================
+template<PhysicsType P>
+void Solver<P>::set_initial_conditions() {
+    int ncells = mesh.get_ncells();
+    int ncells_total = mesh.get_ncells_total();
+
+    if constexpr (P == PhysicsType::Heat || P == PhysicsType::Diffusion) {
+        // Default: T=0 everywhere (source will heat it up)
+        // Dirichlet BCs will set boundary values via ghost cells
     }
-    return 0.25f * min_dist_sq / alpha;
-}
+    else if constexpr (P == PhysicsType::Euler) {
+        // Default: uniform state from inlet BC (or rho=1, p=1, v=0)
+        const BCSpec& inlet = config.bc[(int)Boundary::Left];
+        float rho0 = inlet.inlet_rho;
+        float u0   = inlet.inlet_u;
+        float v0   = inlet.inlet_v;
+        float p0   = inlet.inlet_p;
+        float E0   = p0 / (config.gamma - 1.0f) + 0.5f * rho0 * (u0*u0 + v0*v0);
 
-void Solver::update_dynamic_source(float_t power, float_t time) {
-    Float3 source_pos(5.0f, 5.0f, 0.0f);
-    float_t radius = 0.5f;
-
-    // В MPI-режиме пропускаем ghost-строки (j=0 и j=ny-1)
-    int_t nx = mesh.get_nx();
-    int_t start = mesh.is_mpi_mode() ? nx : 0;
-    int_t end   = mesh.is_mpi_mode() ? mesh.get_ncells() - nx : mesh.get_ncells();
-
-    for (int_t c = start; c < end; ++c) {
-        Float3 pos = mesh.centers[c];
-        float_t dist_sq = (pos.x - source_pos.x)*(pos.x - source_pos.x) +
-                          (pos.y - source_pos.y)*(pos.y - source_pos.y);
-        if (dist_sq < radius * radius) {
-            mesh.source[c] = power * (1.0f + 0.5f * std::sin(2.0f * 3.14159f * time / 5.0f));
-        } else {
-            mesh.source[c] = 0.0f;
+        for (int i = 0; i < ncells; ++i) {
+            state.curr[0 * ncells_total + i] = rho0;
+            state.curr[1 * ncells_total + i] = rho0 * u0;
+            state.curr[2 * ncells_total + i] = rho0 * v0;
+            state.curr[3 * ncells_total + i] = E0;
         }
     }
 }
 
-void Solver::do_halo_exchange() {
+// ============================================================================
+// Compute stable dt (CFL condition)
+// ============================================================================
+template<PhysicsType P>
+float_t Solver<P>::compute_dt() {
+    if constexpr (P == PhysicsType::Heat || P == PhysicsType::Diffusion) {
+        // dt = cfl * min(dx^2, dy^2) / (2 * kappa)  [2D diffusion CFL]
+        float hx = mesh.get_hx();
+        float hy = mesh.get_hy();
+        float h_min = (hx < hy) ? hx : hy;
+        return config.cfl * 0.25f * h_min * h_min / config.kappa;
+    }
+    else if constexpr (P == PhysicsType::Euler) {
+        // dt = cfl * min(dx, dy) / max_wavespeed
+        int ncells = mesh.get_ncells();
+        int ncells_total = mesh.get_ncells_total();
+        float max_speed = 1e-10f;
+
+        #pragma omp parallel for reduction(max:max_speed)
+        for (int i = 0; i < ncells; ++i) {
+            float rho  = state.curr[0 * ncells_total + i];
+            float rhou = state.curr[1 * ncells_total + i];
+            float rhov = state.curr[2 * ncells_total + i];
+            float E    = state.curr[3 * ncells_total + i];
+            float s = euler_max_wavespeed(rho, rhou, rhov, E, config.gamma);
+            if (s > max_speed) max_speed = s;
+        }
+
+        // MPI global max
+        if (mpi_size > 1) {
+            float global_max;
+            MPI_Allreduce(&max_speed, &global_max, 1, MPI_FLOAT, MPI_MAX, MPI_COMM_WORLD);
+            max_speed = global_max;
+        }
+
+        float hx = mesh.get_hx();
+        float hy = mesh.get_hy();
+        float h_min = (hx < hy) ? hx : hy;
+        return config.cfl * h_min / max_speed;
+    }
+}
+
+// ============================================================================
+// Source term update
+// ============================================================================
+template<PhysicsType P>
+void Solver<P>::update_source(float_t time) {
+    if constexpr (P == PhysicsType::Heat || P == PhysicsType::Diffusion) {
+        if (config.source.type == "none") return;
+        if (config.source.type != "gaussian") return;
+
+        int_t nx = mesh.get_nx();
+        int_t start = mesh.is_mpi_mode() ? nx : 0;
+        int_t end   = mesh.is_mpi_mode() ? mesh.get_ncells() - nx : mesh.get_ncells();
+
+        float sx = config.source.x;
+        float sy = config.source.y;
+        float r  = config.source.radius;
+        float P_src = config.source.power;
+
+        for (int_t c = start; c < end; ++c) {
+            Float3 pos = mesh.centers[c];
+            float dist_sq = (pos.x - sx)*(pos.x - sx) + (pos.y - sy)*(pos.y - sy);
+            if (dist_sq < r * r) {
+                source[c] = P_src * (1.0f + 0.5f * std::sin(2.0f * 3.14159f * time / 5.0f));
+            } else {
+                source[c] = 0.0f;
+            }
+        }
+    }
+    // Euler: no source term by default
+}
+
+// ============================================================================
+// Boundary condition application (CPU)
+// ============================================================================
+template<PhysicsType P>
+void Solver<P>::apply_bcs_cpu() {
+    int n_ghost = mesh.get_n_ghost_bc();
+    if (n_ghost == 0) return;
+
+    int ncells = mesh.get_ncells();
+    int ncells_total = mesh.get_ncells_total();
+    float* U = state.curr.data();
+
+    // Iterate over boundary faces to find ghost cells
+    int nfaces = mesh.faces.count;
+    for (int fi = 0; fi < nfaces; ++fi) {
+        int bid = mesh.face_boundary_id[fi];
+        if (bid < 0) continue;  // interior face
+
+        int owner = mesh.faces.owner[fi];
+        int ghost = mesh.faces.neighbor[fi];
+        if (ghost < ncells) continue;  // not a ghost cell
+
+        const BCSpec& bc = mesh.get_bc((Boundary)bid);
+
+        if constexpr (P == PhysicsType::Heat || P == PhysicsType::Diffusion) {
+            apply_bc_scalar(ghost, owner, U, ncells_total, bc.type, bc.value);
+        }
+        else if constexpr (P == PhysicsType::Euler) {
+            float nx = mesh.faces.normal_x[fi];
+            float ny = mesh.faces.normal_y[fi];
+            apply_bc_euler(ghost, owner, U, ncells_total, bc.type,
+                          nx, ny,
+                          bc.inlet_rho, bc.inlet_u, bc.inlet_v, bc.inlet_p,
+                          config.gamma);
+        }
+    }
+}
+
+// ============================================================================
+// CPU step
+// ============================================================================
+template<PhysicsType P>
+void Solver<P>::step_cpu() {
+    int ncells = mesh.get_ncells();
+    int ncells_total = mesh.get_ncells_total();
+
+    const float* U_curr     = state.curr.data();
+    float*       U_next     = state.next.data();
+    const float* vols       = mesh.volumes.data();
+    const int*   f_owner    = mesh.faces.owner.data();
+    const int*   f_neighbor = mesh.faces.neighbor.data();
+    const float* f_area     = mesh.faces.area.data();
+    const float* f_distance = mesh.faces.distance.data();
+    const int*   cf         = mesh.cell_faces.data();
+
+    if constexpr (P == PhysicsType::Heat) {
+        const float* src = source.data();
+        float kappa = config.kappa;
+        #pragma omp parallel for
+        for (int i = 0; i < ncells; ++i) {
+            compute_cell_update_heat(
+                i, U_curr, U_next, vols,
+                f_owner, f_neighbor, f_area, f_distance,
+                cf, src, ncells, ncells_total, kappa, dt);
+        }
+    }
+    else if constexpr (P == PhysicsType::Diffusion) {
+        const float* src = source.data();
+        float D = config.kappa;
+        #pragma omp parallel for
+        for (int i = 0; i < ncells; ++i) {
+            compute_cell_update_diffusion(
+                i, U_curr, U_next, vols,
+                f_owner, f_neighbor, f_area, f_distance,
+                cf, src, ncells, ncells_total, D, dt);
+        }
+    }
+    else if constexpr (P == PhysicsType::Euler) {
+        const float* fnx = mesh.faces.normal_x.data();
+        const float* fny = mesh.faces.normal_y.data();
+        #pragma omp parallel for
+        for (int i = 0; i < ncells; ++i) {
+            compute_cell_update_euler(
+                i, U_curr, U_next, vols,
+                f_owner, f_neighbor, f_area, f_distance,
+                fnx, fny, cf,
+                ncells, ncells_total, config.gamma, dt);
+        }
+    }
+
+    state.swap_buffers();
+}
+
+// ============================================================================
+// MPI halo exchange
+// ============================================================================
+template<PhysicsType P>
+void Solver<P>::do_halo_exchange() {
     if (!decomp || mpi_size <= 1) return;
 
     int nx = mesh.get_nx();
     int total_ny = mesh.get_ny();
     int real_ny = mesh.get_real_ny();
+    int ncells_total = mesh.get_ncells_total();
 
     if (use_gpu) {
-        // GPU → CPU (только 2 граничные строки)
-        gpu_mesh.download_halo_rows(mesh, nx, real_ny);
-        // MPI обмен
-        decomp->exchange_halos(mesh.get_T_curr(), nx, total_ny);
-        // CPU → GPU (только 2 ghost-строки)
-        gpu_mesh.upload_halo_rows(mesh, nx, total_ny);
+        gpu_state.download_halo_rows(state.curr.data(), nx, real_ny, NVAR);
+        decomp->exchange_halos(state.curr.data(), nx, total_ny, NVAR, ncells_total);
+        gpu_state.upload_halo_rows(state.curr.data(), nx, total_ny, NVAR);
     } else {
-        decomp->exchange_halos(mesh.get_T_curr(), nx, total_ny);
+        decomp->exchange_halos(state.curr.data(), nx, total_ny, NVAR, ncells_total);
     }
 }
 
-void Solver::gather_and_save_vtk(int step_index) {
+// ============================================================================
+// VTK gather and save
+// ============================================================================
+template<PhysicsType P>
+void Solver<P>::gather_and_save_vtk(int step_index) {
+    int nx = mesh.get_nx();
+    int ncells_total = mesh.get_ncells_total();
+
     if (mpi_size <= 1) {
-        // Одиночный ранк — пишем напрямую (без ghost, т.к. их нет)
-        VTKWriter::save(&mesh, step_index);
+        // Single rank: write directly
+        // For NVAR=1: pass var 0. For Euler: pass all vars.
+        VTKWriter::save_fields<P>(state.curr.data(), ncells_total,
+                                  &mesh, step_index, config.gamma);
         return;
     }
 
-    int nx = mesh.get_nx();
     int real_ny = mesh.get_real_ny();
     int local_count = nx * real_ny;
 
-    // Извлекаем реальные строки (без ghost) из локального T
-    std::vector<float> local_T(local_count);
-    float_t* T = mesh.get_T_curr();
-    // Реальные данные: строки 1..real_ny (пропускаем ghost строку 0)
-    std::memcpy(local_T.data(), T + nx, local_count * sizeof(float));
+    // For each variable, extract real rows (skip ghost row 0)
+    std::vector<float> local_data(NVAR * local_count);
+    for (int v = 0; v < NVAR; ++v) {
+        std::memcpy(local_data.data() + v * local_count,
+                    state.curr.data() + v * ncells_total + nx,
+                    local_count * sizeof(float));
+    }
 
-    // Собираем размеры с каждого ранка
     std::vector<int> counts(mpi_size), displs(mpi_size);
     MPI_Gather(&local_count, 1, MPI_INT, counts.data(), 1, MPI_INT, 0, MPI_COMM_WORLD);
 
@@ -94,104 +286,140 @@ void Solver::gather_and_save_vtk(int step_index) {
         int global_total = displs[mpi_size-1] + counts[mpi_size-1];
         int global_ny = global_total / nx;
 
-        std::vector<float> global_T(global_total);
-        MPI_Gatherv(local_T.data(), local_count, MPI_FLOAT,
-                     global_T.data(), counts.data(), displs.data(), MPI_FLOAT,
-                     0, MPI_COMM_WORLD);
+        // Gather each variable separately
+        std::vector<float> global_data(NVAR * global_total);
+        for (int v = 0; v < NVAR; ++v) {
+            MPI_Gatherv(local_data.data() + v * local_count, local_count, MPI_FLOAT,
+                        global_data.data() + v * global_total, counts.data(), displs.data(), MPI_FLOAT,
+                        0, MPI_COMM_WORLD);
+        }
 
         float_t hy_global = 10.0f / static_cast<float_t>(global_ny);
-        VTKWriter::save_raw(global_T.data(), nx, global_ny,
-                            Float3(0.0f, 0.0f, 0.0f),
-                            mesh.get_hx(), hy_global, step_index);
+        VTKWriter::save_raw_fields<P>(global_data.data(), global_total,
+                                       nx, global_ny,
+                                       Float3(0.0f, 0.0f, 0.0f),
+                                       mesh.get_hx(), hy_global,
+                                       step_index, config.gamma);
     } else {
-        MPI_Gatherv(local_T.data(), local_count, MPI_FLOAT,
-                     nullptr, nullptr, nullptr, MPI_FLOAT,
-                     0, MPI_COMM_WORLD);
+        for (int v = 0; v < NVAR; ++v) {
+            MPI_Gatherv(local_data.data() + v * local_count, local_count, MPI_FLOAT,
+                        nullptr, nullptr, nullptr, MPI_FLOAT,
+                        0, MPI_COMM_WORLD);
+        }
     }
 }
 
-void Solver::step_cpu() {
-    int ncells = mesh.get_ncells();
-
-    const float* T_curr     = mesh.data.curr.T.data();
-    float*       T_next     = mesh.data.next.T.data();
-    const float* volumes    = mesh.volumes.data();
-    const int*   f_owner    = mesh.faces.owner.data();
-    const int*   f_neighbor = mesh.faces.neighbor.data();
-    const float* f_area     = mesh.faces.area.data();
-    const float* f_distance = mesh.faces.distance.data();
-    const int*   cf         = mesh.cell_faces.data();
-    const float* kf         = mesh.kappa_face.data();
-    const float* src        = mesh.source.data();
-
-    #pragma omp parallel for
-    for (int i = 0; i < ncells; ++i) {
-        calculate_heat_flux_core(
-            i, T_curr, T_next, volumes,
-            f_owner, f_neighbor, f_area, f_distance,
-            cf, kf, src,
-            ncells, dt
-        );
+// ============================================================================
+// Main solve loop
+// ============================================================================
+template<PhysicsType P>
+void Solver<P>::solve() {
+    if (mpi_rank == 0) {
+        std::cout << ">>> SOLVER: " << PhysicsTraits<P>::name
+                  << " | " << (use_gpu ? "GPU (CUDA)" : "CPU (OpenMP)")
+                  << " | NVAR=" << NVAR << "\n";
     }
 
-    mesh.data.swap_buffers();
-}
-
-void Solver::solve(int total_steps, int save_every) {
-    if (use_gpu) {
-        if (mpi_rank == 0)
-            std::cout << ">>> SOLVER: GPU (CUDA + thrust)\n";
-    } else {
-        if (mpi_rank == 0)
-            std::cout << ">>> SOLVER: CPU (OpenMP)\n";
-    }
-
-    dt = 0.5f * compute_max_dt();
-
+    dt = compute_dt();
     if (mpi_rank == 0)
         std::cout << "dt=" << dt << " mpi_size=" << mpi_size << "\n";
 
-    // Начальный halo exchange (заполнить ghost-строки перед первым шагом)
+    // Apply BCs and initial halo exchange
+    apply_bcs_cpu();
     do_halo_exchange();
+
+    if (use_gpu) {
+        gpu_state.upload(state.curr.data(), mesh.get_ncells_total());
+    }
 
     int saved = 0;
     gather_and_save_vtk(saved++);
 
     auto t_start = std::chrono::high_resolution_clock::now();
 
+    int total_steps = config.steps;
+    int save_every = config.save_every;
+
     for (int step = 1; step <= total_steps; ++step) {
         float_t time = step * dt;
 
-        update_dynamic_source(1000.0f, time);
+        // Source term
+        update_source(time);
+
+        // Recompute dt for Euler (adaptive CFL)
+        if constexpr (P == PhysicsType::Euler) {
+            if (use_gpu) {
+                dt = compute_dt_gpu();
+            } else {
+                dt = compute_dt();
+            }
+        }
 
         if (use_gpu) {
-            gpu_mesh.upload_source(mesh.source);
+            if constexpr (P == PhysicsType::Heat || P == PhysicsType::Diffusion) {
+                gpu_state.upload_source(source);
+            }
             step_gpu();
         } else {
             step_cpu();
         }
 
-        // Halo exchange после каждого шага
         do_halo_exchange();
 
-        if (step % save_every == 0) {
-            if (use_gpu) gpu_mesh.download_T(mesh);
+        // Apply BCs after halo exchange
+        if (mesh.get_n_ghost_bc() > 0) {
+            if (use_gpu) {
+                // Download state, apply BCs on CPU, upload back
+                // (optimization: apply_bcs_gpu for GPU path)
+                gpu_state.download(state.curr.data(), mesh.get_ncells_total());
+                apply_bcs_cpu();
+                gpu_state.upload(state.curr.data(), mesh.get_ncells_total());
+            } else {
+                apply_bcs_cpu();
+            }
+        }
 
-            // Диагностика
+        if (step % save_every == 0) {
+            if (use_gpu) {
+                gpu_state.download(state.curr.data(), mesh.get_ncells_total());
+            }
+
+            // Diagnostics
             if (mpi_rank == 0) {
-                float_t* T = mesh.get_T_curr();
                 int ncells = mesh.get_ncells();
-                float_t T_min = T[0], T_max = T[0];
-                int nan_count = 0;
-                for (int c = 0; c < ncells; ++c) {
-                    if (std::isnan(T[c]) || std::isinf(T[c])) { ++nan_count; continue; }
-                    if (T[c] < T_min) T_min = T[c];
-                    if (T[c] > T_max) T_max = T[c];
+                int ncells_total = mesh.get_ncells_total();
+                if constexpr (P == PhysicsType::Heat || P == PhysicsType::Diffusion) {
+                    float T_min = state.curr[0], T_max = state.curr[0];
+                    int nan_count = 0;
+                    for (int c = 0; c < ncells; ++c) {
+                        float v = state.curr[c];
+                        if (std::isnan(v) || std::isinf(v)) { ++nan_count; continue; }
+                        if (v < T_min) T_min = v;
+                        if (v > T_max) T_max = v;
+                    }
+                    std::cout << "Step " << step << ": min=" << T_min
+                              << " max=" << T_max;
+                    if (nan_count > 0) std::cout << " NaN/Inf=" << nan_count;
+                    std::cout << "\n";
                 }
-                std::cout << "Step " << step << ": T_min=" << T_min
-                          << " T_max=" << T_max;
-                if (nan_count > 0) std::cout << " NaN/Inf=" << nan_count;
-                std::cout << "\n";
+                else if constexpr (P == PhysicsType::Euler) {
+                    float rho_min = 1e30f, rho_max = -1e30f;
+                    float p_min = 1e30f, p_max = -1e30f;
+                    for (int c = 0; c < ncells; ++c) {
+                        float rho  = state.curr[0 * ncells_total + c];
+                        float rhou = state.curr[1 * ncells_total + c];
+                        float rhov = state.curr[2 * ncells_total + c];
+                        float E    = state.curr[3 * ncells_total + c];
+                        float p = euler_pressure(rho, rhou, rhov, E, config.gamma);
+                        if (rho < rho_min) rho_min = rho;
+                        if (rho > rho_max) rho_max = rho;
+                        if (p < p_min) p_min = p;
+                        if (p > p_max) p_max = p;
+                    }
+                    std::cout << "Step " << step
+                              << ": rho=[" << rho_min << "," << rho_max
+                              << "] p=[" << p_min << "," << p_max << "]\n";
+                }
             }
 
             gather_and_save_vtk(saved++);
@@ -206,3 +434,8 @@ void Solver::solve(int total_steps, int save_every) {
                   << (total_steps / dur.count()) << " steps/s\n";
     }
 }
+
+// Explicit template instantiations
+template class Solver<PhysicsType::Heat>;
+template class Solver<PhysicsType::Diffusion>;
+template class Solver<PhysicsType::Euler>;

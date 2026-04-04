@@ -10,3 +10,8 @@ using int_t = int;
 #else
 #define HOST_DEVICE
 #endif
+
+struct Float3 {
+    float_t x, y, z;
+    HOST_DEVICE Float3(float_t x = 0, float_t y = 0, float_t z = 0) : x(x), y(y), z(z) {}
+};

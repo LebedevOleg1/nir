@@ -3,51 +3,64 @@
 #include "GpuMesh.hpp"
 #include "MpiDecomp.hpp"
 #include "VTKWriter.hpp"
+#include "Config.hpp"
+#include "StateVector.hpp"
+#include "PhysicsType.hpp"
 #include <iostream>
 #include <chrono>
+#include <vector>
+#include <cmath>
 
 // ============================================================================
-// Solver — единый решатель уравнения теплопроводности.
+// Solver<P> -- unified FVM solver templated on physics type.
 //
-// Объединяет бывшие CpuSolver и CudaSolver. Хранит CPU-сетку (Mesh) и
-// GPU-сетку (GpuMesh). В зависимости от флага use_gpu вызывает step_cpu()
-// или step_gpu().
+// PhysicsType::Heat      -- scalar heat conduction (NVAR=1)
+// PhysicsType::Diffusion -- scalar diffusion (NVAR=1)
+// PhysicsType::Euler     -- 2D Euler equations (NVAR=4)
 //
-// Разделение по файлам:
-//   solver.cpp — CPU-реализация (step_cpu, solve, update_source)
-//   solver.cu  — CUDA-ядро и step_gpu
-//
-// Это работает потому что CMake компилирует .cpp через g++ и .cu через nvcc,
-// а линкер собирает всё в один бинарник. Оба файла видят один Solver.hpp.
+// CPU path: solver.cpp (OpenMP)
+// GPU path: solver.cu  (CUDA)
 // ============================================================================
+template<PhysicsType P>
 class Solver {
-private:
-    Mesh& mesh;           // CPU-сетка (данные живут в оперативной памяти)
-    GpuMesh gpu_mesh;     // GPU-сетка (данные живут в видеопамяти)
-    MpiDecomp* decomp;    // MPI-декомпозиция (для halo exchange)
+    static constexpr int NVAR = PhysicsTraits<P>::NVAR;
 
-    float_t alpha;        // коэффициент температуропроводности
-    float_t dt;           // шаг по времени (вычисляется из CFL)
+private:
+    Mesh& mesh;
+    GpuMesh gpu_mesh;
+    GpuState<NVAR> gpu_state;
+    MpiDecomp* decomp;
+    const SimConfig& config;
+
+    StateVector<NVAR> state;
+    std::vector<float> source;  // source term (for heat/diffusion)
+
+    float_t dt;
     bool use_gpu;
 
-    // MPI-информация (для domain decomposition)
     int mpi_rank = 0;
     int mpi_size = 1;
 
-    // --- CPU-часть (solver.cpp) ---
+    // --- CPU path (solver.cpp) ---
     void step_cpu();
-    void update_dynamic_source(float_t power, float_t time);
-    float_t compute_max_dt() const;
+    void apply_bcs_cpu();
+    void update_source(float_t time);
+    float_t compute_dt();
+
+    // --- GPU path (solver.cu) ---
+    void step_gpu();
+    void apply_bcs_gpu();
+    float_t compute_dt_gpu();
+
+    // --- MPI ---
     void do_halo_exchange();
     void gather_and_save_vtk(int step_index);
 
-    // --- GPU-часть (solver.cu) ---
-    void step_gpu();
+    // --- Initial conditions ---
+    void set_initial_conditions();
 
 public:
-    Solver(Mesh& mesh_, float_t alpha_, bool use_gpu_,
-           MpiDecomp* decomp_ = nullptr);
+    Solver(Mesh& mesh_, const SimConfig& config_, MpiDecomp* decomp_ = nullptr);
 
-    // Основной цикл решения
-    void solve(int total_steps, int save_every);
+    void solve();
 };
