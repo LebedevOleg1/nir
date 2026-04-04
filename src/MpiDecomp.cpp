@@ -70,21 +70,17 @@ void MpiDecomp::exchange_halos(float* T, int nx, int total_ny) {
 
     MPI_Status status;
 
-    // Обмен с нижним соседом:
-    // Отправляем первую реальную строку → ghost_top нижнего соседа
-    // Получаем его последнюю реальную строку → наш ghost_bottom
+    // 1) Отправляем нижнюю реальную строку вниз, получаем сверху → ghost_top
     MPI_Sendrecv(
         first_real_row, row_size, MPI_FLOAT, rank_below, 0,
-        ghost_bottom,   row_size, MPI_FLOAT, rank_below, 1,
+        ghost_top,      row_size, MPI_FLOAT, rank_above, 0,
         comm, &status
     );
 
-    // Обмен с верхним соседом:
-    // Отправляем последнюю реальную строку → ghost_bottom верхнего соседа
-    // Получаем его первую реальную строку → наш ghost_top
+    // 2) Отправляем верхнюю реальную строку вверх, получаем снизу → ghost_bottom
     MPI_Sendrecv(
-        last_real_row, row_size, MPI_FLOAT, rank_above, 1,
-        ghost_top,     row_size, MPI_FLOAT, rank_above, 0,
+        last_real_row,  row_size, MPI_FLOAT, rank_above, 1,
+        ghost_bottom,   row_size, MPI_FLOAT, rank_below, 1,
         comm, &status
     );
 }
