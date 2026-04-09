@@ -1,0 +1,24 @@
+# Heat equation with Gaussian source
+# Used for convergence study: L2 error vs grid spacing h.
+
+physics    = heat
+device     = cpu
+
+nx         = 200
+ny         = 200
+
+xmin       = 0.0
+xmax       = 10.0
+ymin       = 0.0
+ymax       = 10.0
+
+steps      = 400
+save_every = 40
+
+cfl        = 0.4
+kappa      = 1.0
+
+ic         = default
+
+# Gaussian source at center
+source = gaussian:5.0,5.0,0.5,1000.0

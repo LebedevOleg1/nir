@@ -1,0 +1,29 @@
+# Rayleigh-Taylor instability
+# Heavy fluid on top (rho~2), light fluid below (rho~1).
+# Gravity drives the interface to go unstable → mushroom caps.
+
+physics    = euler
+device     = gpu
+
+nx         = 256
+ny         = 512
+
+xmin       = 0.0
+xmax       = 1.0
+ymin       = 0.0
+ymax       = 2.0
+
+steps      = 2000
+save_every = 40
+
+cfl        = 0.3
+gamma      = 1.4
+
+ic         = rt
+gravity    = 1.0
+
+# Reflective walls on all sides
+bc_left   = wall
+bc_right  = wall
+bc_bottom = wall
+bc_top    = wall

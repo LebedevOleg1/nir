@@ -1,0 +1,23 @@
+# Kelvin-Helmholtz instability
+# Two fluid layers with opposite horizontal velocities.
+# Runs on GPU with 2 MPI ranks by default (see scripts/run_kh.sh).
+
+physics    = euler
+device     = gpu
+
+nx         = 512
+ny         = 512
+
+xmin       = 0.0
+xmax       = 10.0
+ymin       = 0.0
+ymax       = 10.0
+
+steps      = 3000
+save_every = 30
+
+cfl        = 0.4
+gamma      = 1.4
+
+ic         = kh
+gravity    = 0.0

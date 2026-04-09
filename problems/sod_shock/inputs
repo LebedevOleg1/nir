@@ -1,0 +1,28 @@
+# Sod shock tube — classical 1D Riemann problem extended to 2D.
+# Used for verification: compare against analytical solution.
+
+physics    = euler
+device     = gpu
+
+nx         = 400
+ny         = 4
+
+xmin       = 0.0
+xmax       = 1.0
+ymin       = 0.0
+ymax       = 0.01
+
+steps      = 200
+save_every = 50
+
+cfl        = 0.4
+gamma      = 1.4
+
+ic         = sod
+
+# Periodic in Y (thin strip → effectively 1D)
+bc_top    = periodic
+bc_bottom = periodic
+# Wall in X to confine the shock
+bc_left   = wall
+bc_right  = wall

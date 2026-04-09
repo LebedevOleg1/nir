@@ -1,56 +1,21 @@
 cmake_minimum_required(VERSION 3.18)
-
-# Проект использует три языка/технологии:
-#   CXX  — C++17, основной язык
-#   CUDA — NVIDIA GPU compute (nvcc компилирует .cu файлы)
-project(heat2d_hybrid LANGUAGES CXX CUDA)
+project(fvm2d_hybrid LANGUAGES CXX CUDA)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# --- Зависимости ---
-
-# CUDA Toolkit: предоставляет CUDA::cudart, thrust и пр.
+# --- Dependencies ---
 find_package(CUDAToolkit REQUIRED)
-
-# MPI: предоставляет MPI::MPI_CXX для межпроцессного обмена
 find_package(MPI REQUIRED)
-
-# OpenMP: параллелизм на CPU (используется в solver.cpp)
 find_package(OpenMP REQUIRED)
 
-# --- Настройки компиляции ---
+# Optional: uncomment and set the right compute capability for your cluster:
+# set(CMAKE_CUDA_ARCHITECTURES 80)   # A100
+# set(CMAKE_CUDA_ARCHITECTURES 89)   # RTX 4090
+# set(CMAKE_CUDA_ARCHITECTURES 70)   # V100
 
-# Архитектура GPU закомментирована — CMake определит автоматически,
-# либо на кластере можно задать через -DCMAKE_CUDA_ARCHITECTURES=XX
-# set(CMAKE_CUDA_ARCHITECTURES 89)
+# --- Core library ---
+add_subdirectory(src)
 
-# Подключаем заголовки
-include_directories(${CMAKE_SOURCE_DIR}/include)
-
-# --- Сборка ---
-
-# Собираем все .cpp и .cu из src/
-file(GLOB SOURCES
-    "${CMAKE_SOURCE_DIR}/src/*.cpp"
-    "${CMAKE_SOURCE_DIR}/src/*.cu"
-)
-
-add_executable(solver ${SOURCES})
-
-# --- Линковка ---
-
-# CUDA Runtime + device runtime (для dynamic parallelism если понадобится)
-target_link_libraries(solver PRIVATE CUDA::cudart)
-target_link_libraries(solver ${CUDA_LIBRARIES} ${CUDA_cudadevrt_LIBRARY})
-
-# MPI
-target_link_libraries(solver PRIVATE MPI::MPI_CXX)
-
-# OpenMP
-target_link_libraries(solver PRIVATE OpenMP::OpenMP_CXX)
-
-# Math library (Linux)
-if(UNIX)
-    target_link_libraries(solver PRIVATE m)
-endif()
+# --- Problem executables ---
+add_subdirectory(problems)

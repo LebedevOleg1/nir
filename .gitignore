@@ -1,2 +1,8 @@
 build/
 .vscode/
+output_*.vtk
+*.log
+__pycache__/
+*.pyc
+*.gif
+*.mp4
