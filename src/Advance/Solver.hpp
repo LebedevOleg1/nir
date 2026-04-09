@@ -40,18 +40,13 @@ private:
     int   mpi_rank = 0;
     int   mpi_size = 1;
 
-    // CPU path (solver.cpp)
+    // CPU path (solver_impl.inl)
     void step_cpu();
     void apply_bcs_cpu();
     void update_source(float time);
     float compute_dt();
 
-    // GPU path (solver.cu)
-    void step_gpu();
-    void apply_bcs_gpu();
-    float compute_dt_gpu();
-
-    // MPI
+    // MPI + IO
     void do_halo_exchange();
     void gather_and_save_vtk(int step_index);
 
@@ -61,6 +56,12 @@ private:
 
 public:
     Solver(Mesh& mesh_, const SimConfig& config_, MpiDecomp* decomp_ = nullptr);
+
+    // GPU path (solver.cu) — public because CUDA extended lambdas
+    // cannot be captured inside private member functions.
+    void step_gpu();
+    void apply_bcs_gpu();
+    float compute_dt_gpu();
 
     void solve();
 };

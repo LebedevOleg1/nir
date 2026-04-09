@@ -1,5 +1,6 @@
 #pragma once
 #include "Base/FvmTypes.hpp"
+#include "Base/FvmMacros.hpp"
 #include "Mesh/BC.hpp"
 #include <vector>
 
