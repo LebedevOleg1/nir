@@ -9,10 +9,9 @@ find_package(CUDAToolkit REQUIRED)
 find_package(MPI REQUIRED)
 find_package(OpenMP REQUIRED)
 
-# Optional: uncomment and set the right compute capability for your cluster:
-# set(CMAKE_CUDA_ARCHITECTURES 80)   # A100
-# set(CMAKE_CUDA_ARCHITECTURES 89)   # RTX 4090
-# set(CMAKE_CUDA_ARCHITECTURES 70)   # V100
+# Set compute capability for the target cluster (V100 = SM 70).
+# Override at configure time if needed: cmake -DCMAKE_CUDA_ARCHITECTURES=80 ...
+set(CMAKE_CUDA_ARCHITECTURES 70)   # V100
 
 # --- Core library ---
 add_subdirectory(src)
