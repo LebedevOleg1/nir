@@ -274,7 +274,7 @@ void Solver<P>::step_cpu() {
         const float* src   = source.data();
         float        kappa = config.kappa;
         float        dt_   = dt;
-        ParallelFor(false, ncells, [=](int i) {
+        ParallelFor(false, ncells, [=] FVM_HOST_DEVICE (int i) {
             compute_cell_update_heat(
                 i, U_curr, U_next, vols,
                 f_owner, f_neighbor, f_area, f_distance,
@@ -285,7 +285,7 @@ void Solver<P>::step_cpu() {
         const float* src = source.data();
         float D   = config.kappa;
         float dt_ = dt;
-        ParallelFor(false, ncells, [=](int i) {
+        ParallelFor(false, ncells, [=] FVM_HOST_DEVICE (int i) {
             compute_cell_update_diffusion(
                 i, U_curr, U_next, vols,
                 f_owner, f_neighbor, f_area, f_distance,
@@ -295,10 +295,10 @@ void Solver<P>::step_cpu() {
     else if constexpr (P == PhysicsType::Euler) {
         const float* fnx = mesh.faces.normal_x.data();
         const float* fny = mesh.faces.normal_y.data();
-        float gamma_  = config.gamma;
+        float gamma_   = config.gamma;
         float gravity_ = config.gravity;
         float dt_      = dt;
-        ParallelFor(false, ncells, [=](int i) {
+        ParallelFor(false, ncells, [=] FVM_HOST_DEVICE (int i) {
             compute_cell_update_euler(
                 i, U_curr, U_next, vols,
                 f_owner, f_neighbor, f_area, f_distance,
