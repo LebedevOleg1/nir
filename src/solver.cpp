@@ -460,6 +460,91 @@ void Solver<P>::solve() {
         gpu_state.upload(state.curr.data(), mesh.get_ncells_total());
     }
 
+    // --- Benchmark mode: run multiple repetitions, report min time ---
+    if (config.benchmark) {
+        const int NREPS = 3;
+        int total_steps = config.steps;
+        double best_time = 1e30;
+
+        // Save initial state for reset between repetitions
+        std::vector<float> init_state = state.curr;
+
+        for (int rep = 0; rep < NREPS; ++rep) {
+            // Reset state to initial conditions
+            state.curr = init_state;
+            if (use_gpu) {
+                gpu_state.upload(state.curr.data(), mesh.get_ncells_total());
+            }
+            dt = compute_dt();
+
+            auto t_start = std::chrono::high_resolution_clock::now();
+
+            for (int step = 1; step <= total_steps; ++step) {
+                float_t time = step * dt;
+                update_source(time);
+
+                if constexpr (P == PhysicsType::Euler) {
+                    if (use_gpu) {
+                        dt = compute_dt_gpu();
+                    } else {
+                        dt = compute_dt();
+                    }
+                }
+
+                if (use_gpu) {
+                    if constexpr (P == PhysicsType::Heat || P == PhysicsType::Diffusion) {
+                        gpu_state.upload_source(source);
+                    }
+                    step_gpu();
+                } else {
+                    step_cpu();
+                }
+
+                do_halo_exchange();
+
+                if (mesh.get_n_ghost_bc() > 0) {
+                    if (use_gpu) {
+                        gpu_state.download(state.curr.data(), mesh.get_ncells_total());
+                        apply_bcs_cpu();
+                        gpu_state.upload(state.curr.data(), mesh.get_ncells_total());
+                    } else {
+                        apply_bcs_cpu();
+                    }
+                }
+            }
+
+            // Ensure GPU is done
+            if (use_gpu) {
+                cudaDeviceSynchronize();
+            }
+
+            auto t_end = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double> dur = t_end - t_start;
+            double elapsed = dur.count();
+
+            if (mpi_rank == 0) {
+                std::cout << "Rep " << (rep+1) << "/" << NREPS
+                          << ": " << elapsed << "s\n";
+            }
+
+            if (elapsed < best_time) best_time = elapsed;
+        }
+
+        if (mpi_rank == 0) {
+            const char* device = use_gpu ? "gpu" : "cpu";
+            std::cout << "BENCH_RESULT,"
+                      << device << ","
+                      << PhysicsTraits<P>::name << ","
+                      << config.nx << ","
+                      << config.ny << ","
+                      << total_steps << ","
+                      << mpi_size << ","
+                      << best_time << "\n";
+        }
+        return;
+    }
+
+    // --- Normal mode ---
     int saved = 0;
     gather_and_save_vtk(saved++);
 
