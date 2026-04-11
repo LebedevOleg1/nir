@@ -66,6 +66,7 @@ SimConfig parse_cli(int argc, char** argv) {
         // Positional: cpu/gpu
         if (arg == "gpu") { cfg.use_gpu = true; continue; }
         if (arg == "cpu") { cfg.use_gpu = false; continue; }
+        if (arg == "--benchmark") { cfg.benchmark = true; continue; }
 
         std::string val = get_arg_value(arg);
 

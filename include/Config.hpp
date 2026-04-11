@@ -41,6 +41,9 @@ struct SimConfig {
 
     // Source
     SourceSpec source;
+
+    // Benchmark mode: disables VTK output, prints machine-parseable timing
+    bool benchmark = false;
 };
 
 SimConfig parse_cli(int argc, char** argv);
