@@ -419,6 +419,10 @@ void Solver<P>::solve() {
     for (int step = 1; step <= config.steps; ++step) {
         float time = step * dt;
         update_source(time);
+        if (use_gpu) {
+            if constexpr (P == PhysicsType::Heat || P == PhysicsType::Diffusion)
+                gpu_state.upload_source(source);
+        }
 
         if constexpr (P == PhysicsType::Euler) {
             dt = use_gpu ? compute_dt_gpu() : compute_dt();
