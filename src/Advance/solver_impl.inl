@@ -132,8 +132,8 @@ void Solver<P>::set_initial_conditions() {
             float rho_inf = 1.0f;
             float T_inf   = 1.0f;
             float eps     = 5.0f;   // vortex strength
-            float x0      = 0.5f * (cfg.xmin + cfg.xmax);
-            float y0      = 0.5f * (cfg.ymin + cfg.ymax);
+            float x0      = 0.5f * (config.xmin + config.xmax);
+            float y0      = 0.5f * (config.ymin + config.ymax);
 
             for (int i = 0; i < ncells; ++i) {
                 float x   = mesh.centers[i].x;

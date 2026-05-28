@@ -80,7 +80,7 @@ void Solver<PhysicsType::Diffusion>::step_gpu() {
 
 // Helper: extract all raw Euler kernel pointers from GpuMesh/GpuState
 static inline void euler_gpu_ptrs(
-    const GpuMesh& gm, const GpuState<4>& gs,
+    const GpuMesh& gm, GpuState<4>& gs,
     float*& d_curr, float*& d_next,
     float*& d_vol, int*& d_fo, int*& d_fn,
     float*& d_fa, float*& d_fd,
