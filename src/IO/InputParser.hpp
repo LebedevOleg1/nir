@@ -43,6 +43,9 @@ struct SimConfig {
     // Initial condition name
     std::string ic = "default";
 
+    // Second-order MUSCL reconstruction + SSP-RK2 time integration
+    bool muscl = false;
+
     // Source term (Heat / Diffusion)
     SourceSpec source;
 };

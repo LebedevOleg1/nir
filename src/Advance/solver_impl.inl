@@ -88,11 +88,17 @@ void Solver<P>::set_initial_conditions() {
             }
         }
         else if (config.ic == "kh") {
-            // Kelvin-Helmholtz: smooth tanh interface, density/velocity jump.
-            // Uses global coordinates for MPI correctness.
+            // Kelvin-Helmholtz: McNally, Lyra & Tassoul (2012) benchmark.
+            // Smooth tanh density/velocity profiles, single-mode perturbation.
+            // Domain [0,1]x[0,1]; rho1=1 (outer), rho2=2 (inner), p=2.5, gamma=5/3.
+            // sigma = 0.05/sqrt(2), w0=0.1 (perturbation amplitude).
             float pi    = 3.14159265f;
             float p0    = 2.5f;
-            float delta = 0.05f * Ly;
+            float rho1  = 1.0f, rho2 = 2.0f;
+            float u1    = -0.5f, u2  = 0.5f;
+            // Use sigma from config or default
+            float sigma = 0.05f / 1.41421356f;  // 0.05/sqrt(2)
+            float w0    = 0.1f;
             float y1    = y_off + 0.25f * Ly;
             float y2    = y_off + 0.75f * Ly;
 
@@ -100,48 +106,96 @@ void Solver<P>::set_initial_conditions() {
                 float x = mesh.centers[i].x;
                 float y = mesh.centers[i].y;
 
-                float s1   = 0.5f * (1.0f + tanhf((y - y1) / delta));
-                float s2   = 0.5f * (1.0f + tanhf((y - y2) / delta));
-                float frac = s1 * (1.0f - s2);
+                // McNally eq.(2)-(3): smooth tanh profiles
+                float rho = rho1 + (rho2 - rho1) * 0.5f *
+                            (tanhf((y - y1) / sigma) - tanhf((y - y2) / sigma));
+                float u   = u1  + (u2  - u1)  * 0.5f *
+                            (tanhf((y - y1) / sigma) - tanhf((y - y2) / sigma));
 
-                float rho = 1.0f + frac;
-                float u   = -0.5f + frac;
+                // McNally eq.(4): single-mode v perturbation localised at interfaces
+                float env1 = expf(-(y - y1) * (y - y1) / (2.0f * sigma * sigma));
+                float env2 = expf(-(y - y2) * (y - y2) / (2.0f * sigma * sigma));
+                float v    = w0 * sinf(2.0f * pi * x / Lx) * (env1 + env2);
 
-                float env1 = expf(-(y-y1)*(y-y1) / (2.0f*delta*delta));
-                float env2 = expf(-(y-y2)*(y-y2) / (2.0f*delta*delta));
-                float v    = 0.1f * sinf(2.0f*pi*x/Lx)
-                           + 0.1f * sinf(4.0f*pi*x/Lx)
-                           + 0.05f* sinf(6.0f*pi*x/Lx);
-                v *= (env1 + env2);
-
-                float E = p0/(gamma-1.0f) + 0.5f*rho*(u*u+v*v);
-                state.curr[0*ncells_total+i] = rho;
-                state.curr[1*ncells_total+i] = rho*u;
-                state.curr[2*ncells_total+i] = rho*v;
-                state.curr[3*ncells_total+i] = E;
+                float E = p0 / (gamma - 1.0f) + 0.5f * rho * (u * u + v * v);
+                state.curr[0 * ncells_total + i] = rho;
+                state.curr[1 * ncells_total + i] = rho * u;
+                state.curr[2 * ncells_total + i] = rho * v;
+                state.curr[3 * ncells_total + i] = E;
             }
         }
-        else if (config.ic == "rt") {
-            // Rayleigh-Taylor: heavy fluid on top, light below, gravity drives it.
-            float pi    = 3.14159265f;
-            float g     = (config.gravity > 0) ? config.gravity : 1.0f;
-            float y_mid = y_off + 0.5f * Ly;
-            float delta = 0.05f * Ly;
+        else if (config.ic == "vortex") {
+            // Isentropic vortex (Yee et al. 1999): smooth exact solution for
+            // convergence testing. Background: rho=1, u=1, v=0, T=1, gamma=1.4.
+            float pi      = 3.14159265f;
+            float u_inf   = 1.0f, v_inf = 0.0f;
+            float rho_inf = 1.0f;
+            float T_inf   = 1.0f;
+            float eps     = 5.0f;   // vortex strength
+            float x0      = 0.5f * (cfg.xmin + cfg.xmax);
+            float y0      = 0.5f * (cfg.ymin + cfg.ymax);
 
             for (int i = 0; i < ncells; ++i) {
                 float x   = mesh.centers[i].x;
                 float y   = mesh.centers[i].y;
-                float rho = 1.5f + 0.5f * tanhf((y - y_mid) / delta);
-                float env = expf(-(y-y_mid)*(y-y_mid) / (2.0f*delta*delta));
-                float v   = env * 0.01f * (sinf(2.0f*pi*x/Lx) +
-                                           sinf(4.0f*pi*x/Lx) +
-                                           0.5f*sinf(6.0f*pi*x/Lx));
-                float p   = 10.0f + rho * g * (y_off + Ly - y);
-                float E   = p/(gamma-1.0f) + 0.5f*rho*v*v;
-                state.curr[0*ncells_total+i] = rho;
-                state.curr[1*ncells_total+i] = 0.0f;
-                state.curr[2*ncells_total+i] = rho*v;
-                state.curr[3*ncells_total+i] = E;
+                float dx  = x - x0;
+                float dy  = y - y0;
+                float r2  = dx * dx + dy * dy;
+                float f   = (1.0f - r2) / 2.0f;
+                float du  = -eps / (2.0f * pi) * dy * expf(f);
+                float dv  =  eps / (2.0f * pi) * dx * expf(f);
+                float dT  = -(gamma - 1.0f) * eps * eps /
+                             (8.0f * gamma * pi * pi) * expf(1.0f - r2);
+                float T   = T_inf + dT;
+                float rho = rho_inf * powf(T / T_inf, 1.0f / (gamma - 1.0f));
+                float u   = u_inf + du;
+                float v   = v_inf + dv;
+                float p   = rho * T;  // ideal gas: p = rho * T (R=1)
+                float E   = p / (gamma - 1.0f) + 0.5f * rho * (u * u + v * v);
+                state.curr[0 * ncells_total + i] = rho;
+                state.curr[1 * ncells_total + i] = rho * u;
+                state.curr[2 * ncells_total + i] = rho * v;
+                state.curr[3 * ncells_total + i] = E;
+            }
+        }
+        else if (config.ic == "rt") {
+            // Rayleigh-Taylor: Liska & Wendroff (2003) benchmark (SIAM J. Sci. Comput.).
+            // Heavy fluid (rho=2) above y=0.5, light (rho=1) below.
+            // Gravity g pointing in -y direction.
+            // Hydrostatic pressure: p(y) = p_top + g*rho_heavy*(1-y) for y>0.5
+            //                              p(y) = p_top + g*rho_heavy*0.5 + g*rho_light*(0.5-y) for y<0.5
+            // Perturbation: v = 0.01*(1+cos(8*pi*x/Lx))*(1+cos(3*pi*y/Ly))/4
+            float pi       = 3.14159265f;
+            float g        = (config.gravity > 0) ? config.gravity : 0.1f;
+            float rho_h    = 2.0f, rho_l = 1.0f;
+            float y_mid    = y_off + 0.5f * Ly;
+            float p_top    = 2.5f;  // Liska 2003 boundary pressure
+
+            // Pressure at interface y_mid (integrating hydrostatic from top)
+            float p_mid    = p_top + g * rho_h * (y_off + Ly - y_mid);
+
+            for (int i = 0; i < ncells; ++i) {
+                float x = mesh.centers[i].x;
+                float y = mesh.centers[i].y;
+
+                float rho, p;
+                if (y >= y_mid) {
+                    rho = rho_h;
+                    p   = p_top + g * rho_h * (y_off + Ly - y);
+                } else {
+                    rho = rho_l;
+                    p   = p_mid + g * rho_l * (y_mid - y);
+                }
+
+                // Perturbation velocity (Liska 2003)
+                float v = 0.01f * (1.0f + cosf(8.0f * pi * x / Lx))
+                                * (1.0f + cosf(3.0f * pi * y / Ly)) / 4.0f;
+
+                float E = p / (gamma - 1.0f) + 0.5f * rho * v * v;
+                state.curr[0 * ncells_total + i] = rho;
+                state.curr[1 * ncells_total + i] = 0.0f;
+                state.curr[2 * ncells_total + i] = rho * v;
+                state.curr[3 * ncells_total + i] = E;
             }
         }
         else {
@@ -295,19 +349,56 @@ void Solver<P>::step_cpu() {
     else if constexpr (P == PhysicsType::Euler) {
         const float* fnx = mesh.faces.normal_x.data();
         const float* fny = mesh.faces.normal_y.data();
+        const int*   fso = mesh.face_stencil_owner.data();
+        const int*   fsn = mesh.face_stencil_neighbor.data();
         float gamma_   = config.gamma;
         float gravity_ = config.gravity;
         float dt_      = dt;
+        int   muscl_   = config.muscl ? 1 : 0;
         ParallelFor(false, ncells, [=] FVM_HOST_DEVICE (int i) {
             compute_cell_update_euler(
                 i, U_curr, U_next, vols,
                 f_owner, f_neighbor, f_area, f_distance,
-                fnx, fny, cf,
-                ncells, ncells_total, gamma_, dt_, gravity_);
+                fnx, fny, cf, fso, fsn,
+                ncells, ncells_total, gamma_, dt_, gravity_, muscl_);
         });
     }
 
     state.swap_buffers();
+}
+
+// ============================================================================
+// SSP-RK2 CPU step (2nd-order time integration, for use with MUSCL)
+//
+// Stage 1: U* = U^n + dt * L(U^n)
+// Stage 2: U^{n+1} = 0.5*U^n + 0.5*(U* + dt*L(U*))
+// ============================================================================
+template<PhysicsType P>
+void Solver<P>::step_rk2_cpu() {
+    if constexpr (P != PhysicsType::Euler) {
+        step_cpu();  // RK2 only needed for Euler
+        return;
+    }
+
+    int ncells_total = mesh.get_ncells_total();
+    int n_total_vars = NVAR * ncells_total;
+
+    // Save U^n in rk_aux
+    std::copy(state.curr.begin(), state.curr.end(), state.rk_aux.begin());
+
+    // --- Stage 1: curr → next (forward Euler, next = U*) ---
+    step_cpu();
+    // After step_cpu: curr = U* (buffers were swapped), next = U^n (old curr)
+    // Apply BCs to U* (now in state.curr)
+    apply_bcs_cpu();
+
+    // --- Stage 2: curr → next (forward Euler with U*, next = U**) ---
+    step_cpu();
+    // After: curr = U** (= U* + dt*L(U*)), next = U*
+
+    // --- Blend: curr = 0.5*rk_aux + 0.5*curr ---
+    for (int c = 0; c < n_total_vars; ++c)
+        state.curr[c] = 0.5f * state.rk_aux[c] + 0.5f * state.curr[c];
 }
 
 // ============================================================================
@@ -430,8 +521,13 @@ void Solver<P>::solve() {
 
         {
             Timer::Scope ts(use_gpu ? "step_gpu" : "step_cpu");
-            if (use_gpu) step_gpu();
-            else         step_cpu();
+            if (use_gpu) {
+                if (config.muscl) step_rk2_gpu();
+                else              step_gpu();
+            } else {
+                if (config.muscl) step_rk2_cpu();
+                else              step_cpu();
+            }
         }
 
         do_halo_exchange();

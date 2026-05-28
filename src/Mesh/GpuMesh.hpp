@@ -12,6 +12,9 @@ struct GpuFaces {
     thrust::device_vector<float> normal_x;
     thrust::device_vector<float> normal_y;
     thrust::device_vector<float> distance;
+    // MUSCL reconstruction stencil (one cell further in each direction per face)
+    thrust::device_vector<int>   stencil_owner;
+    thrust::device_vector<int>   stencil_neighbor;
 };
 
 struct GpuMesh {
@@ -34,9 +37,10 @@ struct GpuMesh {
 // ============================================================================
 template<int NVAR>
 struct GpuState {
-    thrust::device_vector<float> curr;   // NVAR * ncells_total
-    thrust::device_vector<float> next;   // NVAR * ncells_total
-    thrust::device_vector<float> source; // ncells (heat/diffusion source)
+    thrust::device_vector<float> curr;    // NVAR * ncells_total
+    thrust::device_vector<float> next;    // NVAR * ncells_total
+    thrust::device_vector<float> rk_aux;  // NVAR * ncells_total, for SSP-RK2
+    thrust::device_vector<float> source;  // ncells (heat/diffusion source)
 
     int ncells_total = 0;
 

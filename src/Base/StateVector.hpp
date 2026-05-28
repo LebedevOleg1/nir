@@ -12,8 +12,9 @@
 template<int NVAR>
 struct StateVector {
     int ncells = 0;
-    std::vector<Real> curr;   // NVAR * ncells
-    std::vector<Real> next;   // NVAR * ncells
+    std::vector<Real> curr;    // NVAR * ncells
+    std::vector<Real> next;    // NVAR * ncells
+    std::vector<Real> rk_aux;  // NVAR * ncells, for SSP-RK2
 
     StateVector() = default;
 
@@ -21,6 +22,7 @@ struct StateVector {
         ncells = n;
         curr.assign(NVAR * n, Real(0));
         next.assign(NVAR * n, Real(0));
+        rk_aux.assign(NVAR * n, Real(0));
     }
 
     // Access variable v of cell c in current buffer

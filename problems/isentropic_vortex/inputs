@@ -1,0 +1,31 @@
+# Isentropic vortex — smooth exact solution for convergence testing.
+# Domain [-5,5]x[-5,5], periodic, gamma=1.4.
+# At t = Lx/u_inf = 10 the vortex completes one full period.
+# Run with different nx to measure convergence order.
+
+physics    = euler
+device     = gpu
+
+nx         = 64
+ny         = 64
+
+xmin       = -5.0
+xmax       =  5.0
+ymin       = -5.0
+ymax       =  5.0
+
+# steps chosen so t_final ≈ 10 (one period) for nx=64, cfl=0.4
+# dt ≈ cfl * h / (u+c) ≈ 0.4 * (10/64) / (1 + 1.9) ≈ 0.022 → steps ≈ 460
+steps      = 460
+save_every = 460
+
+cfl        = 0.4
+gamma      = 1.4
+muscl      = false
+
+ic         = vortex
+
+bc_left   = periodic
+bc_right  = periodic
+bc_bottom = periodic
+bc_top    = periodic

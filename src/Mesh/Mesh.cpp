@@ -193,4 +193,34 @@ Mesh::Mesh(Int nx_, Int ny_, Vec3 vmin, Vec3 vmax, bool mpi_mode, const BCSpec b
             }
         }
     }
+
+    // -----------------------------------------------------------------------
+    // Build MUSCL stencil arrays.
+    // For face k of cell c: face_stencil_owner[fi]    = neighbor of c through face (k^1)
+    //                       face_stencil_neighbor[fi] = neighbor of nb through face k
+    // This gives the 4-cell stencil needed for 2nd-order MUSCL reconstruction.
+    // Ghost cells (nb >= ncells) are used as-is — their mirrored values
+    // produce zero slope at non-periodic boundaries, giving 1st-order at walls.
+    // -----------------------------------------------------------------------
+    face_stencil_owner.resize(4 * ncells);
+    face_stencil_neighbor.resize(4 * ncells);
+
+    for (Int c = 0; c < ncells; ++c) {
+        for (int k = 0; k < 4; ++k) {
+            Int fi = cell_faces[c * 4 + k];
+            Int nb = faces.neighbor[fi];
+
+            // stencil_owner: neighbor of c through opposite face (k^1 flips 0↔1, 2↔3)
+            face_stencil_owner[fi] = faces.neighbor[cell_faces[c * 4 + (k ^ 1)]];
+
+            // stencil_neighbor: neighbor of nb through face k
+            // (extends stencil one more cell beyond nb)
+            if (nb < ncells) {
+                face_stencil_neighbor[fi] = faces.neighbor[cell_faces[nb * 4 + k]];
+            } else {
+                // Ghost cell: no cell_faces entry; use nb itself → zero slope
+                face_stencil_neighbor[fi] = nb;
+            }
+        }
+    }
 }

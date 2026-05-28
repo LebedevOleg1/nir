@@ -3,6 +3,7 @@ set(PROBLEMS
     sod_shock
     rayleigh_taylor
     heat_gaussian
+    isentropic_vortex
 )
 
 foreach(problem IN LISTS PROBLEMS)

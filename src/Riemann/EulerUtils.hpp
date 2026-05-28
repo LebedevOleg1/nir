@@ -85,6 +85,32 @@ FVM_HOST_DEVICE FVM_INLINE void euler_hll_flux(
     }
 }
 
+// ============================================================================
+// MUSCL reconstruction helpers
+// ============================================================================
+
+// Minmod slope limiter: returns zero if a,b have opposite signs, else the
+// smaller-magnitude value. Keeps the TVD property.
+FVM_HOST_DEVICE FVM_INLINE float muscl_minmod(float a, float b) {
+    if (a * b <= 0.0f) return 0.0f;
+    return (fabsf(a) < fabsf(b)) ? a : b;
+}
+
+// Reconstruct primitive states at a face.
+// Inputs: primitive values at owner (c), neighbor (nb),
+//         stencil_owner (so = opposite side of c), stencil_neighbor (sn = far side of nb).
+// Outputs: left state (from c) and right state (from nb) at the face.
+// Per-primitive reconstruction avoids non-physical intermediate states.
+FVM_HOST_DEVICE FVM_INLINE void muscl_reconstruct_prim(
+    float qc, float qnb, float qso, float qsn,
+    float& qL, float& qR)
+{
+    float slope_c  = muscl_minmod(qc - qso, qnb - qc);
+    float slope_nb = muscl_minmod(qnb - qc, qsn - qnb);
+    qL = qc  + 0.5f * slope_c;
+    qR = qnb - 0.5f * slope_nb;
+}
+
 // Maximum wave speed in a cell (for CFL condition)
 FVM_HOST_DEVICE FVM_INLINE
 float euler_max_wavespeed(float rho, float rhou, float rhov, float E, float gamma) {

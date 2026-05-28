@@ -56,6 +56,8 @@ public:
     // cannot live inside private or protected member functions.
     void step_cpu();
     void step_gpu();
+    void step_rk2_cpu();   // SSP-RK2 for use with MUSCL (CPU path)
+    void step_rk2_gpu();   // SSP-RK2 for use with MUSCL (GPU path)
     void apply_bcs_gpu();
     float compute_dt_gpu();
 

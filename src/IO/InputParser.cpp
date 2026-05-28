@@ -72,6 +72,7 @@ static void apply_kv(SimConfig& cfg, const std::string& key, const std::string& 
     else if (key == "bc-bottom" || key == "bc_bottom") cfg.bc[(int)Boundary::Bottom] = parse_bc(val);
     else if (key == "bc-top"    || key == "bc_top")    cfg.bc[(int)Boundary::Top]    = parse_bc(val);
     else if (key == "source")      cfg.source     = parse_source(val);
+    else if (key == "muscl")       cfg.muscl      = (val == "true" || val == "1" || val == "yes");
     // silently ignore unknown keys (future compatibility)
 }
 

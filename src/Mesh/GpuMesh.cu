@@ -19,6 +19,9 @@ void GpuMesh::upload(const Mesh& mesh) {
 
     cell_faces       = mesh.cell_faces;
     face_boundary_id = mesh.face_boundary_id;
+
+    faces.stencil_owner    = mesh.face_stencil_owner;
+    faces.stencil_neighbor = mesh.face_stencil_neighbor;
 }
 
 // ============================================================================
@@ -29,6 +32,7 @@ void GpuState<NVAR>::upload(const float* cpu_curr, int n_total) {
     ncells_total = n_total;
     curr.assign(cpu_curr, cpu_curr + NVAR * n_total);
     next.resize(NVAR * n_total, 0.0f);
+    rk_aux.resize(NVAR * n_total, 0.0f);
 }
 
 template<int NVAR>

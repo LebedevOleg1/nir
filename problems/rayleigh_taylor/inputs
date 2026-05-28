@@ -1,29 +1,33 @@
-# Rayleigh-Taylor instability
-# Heavy fluid on top (rho~2), light fluid below (rho~1).
-# Gravity drives the interface to go unstable → mushroom caps.
+# Rayleigh-Taylor instability — Liska & Wendroff (2003) benchmark.
+# Domain [0, 1/6] x [0, 1], gamma=5/3, gravity g=0.1 downward (-y).
+# Heavy fluid (rho=2) above y=0.5, light fluid (rho=1) below.
+# Compare density finger pattern at t=8.9 with Liska & Wendroff (2003) Fig.4.4.
 
 physics    = euler
 device     = gpu
 
-nx         = 256
-ny         = 512
+nx         = 64
+ny         = 384
 
 xmin       = 0.0
-xmax       = 1.0
+xmax       = 0.16667
 ymin       = 0.0
-ymax       = 2.0
+ymax       = 1.0
 
-steps      = 2000
-save_every = 40
+# t_final = 8.9: dt ~ cfl*h/c_max, c ~ sqrt(5/3*2.5/1) ~ 2.04
+# h = 1/384 ~ 0.0026; dt ~ 0.3*0.0026/2.04 ~ 3.8e-4 => steps ~ 23400
+# Use fewer steps for first run, check diagnostics
+steps      = 24000
+save_every = 2400
 
 cfl        = 0.3
-gamma      = 1.4
+gamma      = 1.6667
+gravity    = 0.1
+muscl      = true
 
 ic         = rt
-gravity    = 1.0
 
-# Reflective walls on all sides
-bc_left   = wall
-bc_right  = wall
+bc_left   = periodic
+bc_right  = periodic
 bc_bottom = wall
 bc_top    = wall

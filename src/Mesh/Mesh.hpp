@@ -56,9 +56,16 @@ public:
     std::vector<Real> volumes;
 
     Faces faces;
-    std::vector<Int> cell_faces;       // cell_faces[cell*4+k] = face index
-    std::vector<Int> face_boundary_id; // -1 = interior, else Boundary enum value
+    std::vector<Int> cell_faces;           // cell_faces[cell*4+k] = face index
+    std::vector<Int> face_boundary_id;     // -1 = interior, else Boundary enum value
     std::vector<Int> ghost_interior_map;
+
+    // MUSCL reconstruction stencil (2nd-order spatial accuracy).
+    // face_stencil_owner[fi]    = cell on opposite side of owner from face direction
+    // face_stencil_neighbor[fi] = cell on far side of neighbor (extending stencil)
+    // Both use existing periodic/ghost-cell indices so no extra boundary logic is needed.
+    std::vector<Int> face_stencil_owner;
+    std::vector<Int> face_stencil_neighbor;
 
     Mesh(Int nx_, Int ny_, Vec3 vmin, Vec3 vmax,
          bool mpi_mode = false, const BCSpec bc[4] = nullptr);
