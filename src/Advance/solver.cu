@@ -82,10 +82,10 @@ void Solver<PhysicsType::Diffusion>::step_gpu() {
 static inline void euler_gpu_ptrs(
     const GpuMesh& gm, GpuState<4>& gs,
     float*& d_curr, float*& d_next,
-    float*& d_vol, int*& d_fo, int*& d_fn,
-    float*& d_fa, float*& d_fd,
-    float*& d_fnx, float*& d_fny,
-    int*& d_cf, int*& d_fso, int*& d_fsn)
+    const float*& d_vol, const int*& d_fo, const int*& d_fn,
+    const float*& d_fa, const float*& d_fd,
+    const float*& d_fnx, const float*& d_fny,
+    const int*& d_cf, const int*& d_fso, const int*& d_fsn)
 {
     d_curr = thrust::raw_pointer_cast(gs.curr.data());
     d_next = thrust::raw_pointer_cast(gs.next.data());
@@ -106,8 +106,9 @@ void Solver<PhysicsType::Euler>::step_gpu() {
     int n  = gpu_mesh.ncells;
     int nt = gpu_mesh.ncells_total;
 
-    float *d_curr, *d_next, *d_vol, *d_fa, *d_fd, *d_fnx, *d_fny;
-    int   *d_fo, *d_fn, *d_cf, *d_fso, *d_fsn;
+    float *d_curr, *d_next;
+    const float *d_vol, *d_fa, *d_fd, *d_fnx, *d_fny;
+    const int   *d_fo, *d_fn, *d_cf, *d_fso, *d_fsn;
     euler_gpu_ptrs(gpu_mesh, gpu_state,
                    d_curr, d_next, d_vol, d_fo, d_fn,
                    d_fa, d_fd, d_fnx, d_fny, d_cf, d_fso, d_fsn);
@@ -145,8 +146,9 @@ void Solver<PhysicsType::Euler>::step_rk2_gpu() {
     int nt = gpu_mesh.ncells_total;
     int sz = 4 * nt;  // NVAR=4
 
-    float *d_curr, *d_next, *d_vol, *d_fa, *d_fd, *d_fnx, *d_fny;
-    int   *d_fo, *d_fn, *d_cf, *d_fso, *d_fsn;
+    float *d_curr, *d_next;
+    const float *d_vol, *d_fa, *d_fd, *d_fnx, *d_fny;
+    const int   *d_fo, *d_fn, *d_cf, *d_fso, *d_fsn;
     euler_gpu_ptrs(gpu_mesh, gpu_state,
                    d_curr, d_next, d_vol, d_fo, d_fn,
                    d_fa, d_fd, d_fnx, d_fny, d_cf, d_fso, d_fsn);
