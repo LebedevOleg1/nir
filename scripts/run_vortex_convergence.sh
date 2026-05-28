@@ -25,7 +25,7 @@ for N in $GRIDS; do
 
     # Without MUSCL (1st order HLL)
     (cd "$OUTDIR" && cp -r ../../problems/isentropic_vortex/inputs . &&
-     mpirun -np 1 ../../../${BIN} \
+     mpirun -np 1 ../../${BIN} \
         --nx=$N --ny=$N --steps=$STEPS --save-every=$STEPS \
         --device=$DEVICE --muscl=false \
         --xmin=-5 --xmax=5 --ymin=-5 --ymax=5) \
@@ -35,7 +35,7 @@ for N in $GRIDS; do
     OUTDIRM="results/vortex_conv/N${N}_${DEVICE}_muscl"
     mkdir -p "$OUTDIRM"
     (cd "$OUTDIRM" && cp -r ../../problems/isentropic_vortex/inputs . &&
-     mpirun -np 1 ../../../${BIN} \
+     mpirun -np 1 ../../${BIN} \
         --nx=$N --ny=$N --steps=$STEPS --save-every=$STEPS \
         --device=$DEVICE --muscl=true \
         --xmin=-5 --xmax=5 --ymin=-5 --ymax=5) \

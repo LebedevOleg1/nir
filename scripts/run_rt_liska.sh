@@ -18,7 +18,7 @@ mkdir -p "$OUTDIR"
 echo "=== RT Liska 2003: ${NX}x${NY}, steps=$STEPS ==="
 
 (cd "$OUTDIR" && cp -r ../../problems/rayleigh_taylor/inputs . &&
- mpirun -np 1 ../../../${BIN} \
+ mpirun -np 1 ../../${BIN} \
     --nx=$NX --ny=$NY --steps=$STEPS --save-every=$((STEPS/15)) \
     --device=gpu --muscl=true \
     --xmin=0 --xmax=0.16667 --ymin=0 --ymax=1 \

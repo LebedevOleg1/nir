@@ -17,7 +17,7 @@ mkdir -p "$OUTDIR"
 echo "=== KH McNally 2012: ${N}x${N}, steps=$STEPS ==="
 
 (cd "$OUTDIR" && cp -r ../../problems/kelvin_helmholtz/inputs . &&
- mpirun -np 1 ../../../${BIN} \
+ mpirun -np 1 ../../${BIN} \
     --nx=$N --ny=$N --steps=$STEPS --save-every=$((STEPS/10)) \
     --device=gpu --muscl=true \
     --xmin=0 --xmax=1 --ymin=0 --ymax=1) \
