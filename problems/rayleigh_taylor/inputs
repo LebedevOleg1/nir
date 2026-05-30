@@ -6,8 +6,8 @@
 physics    = euler
 device     = gpu
 
-nx         = 64
-ny         = 384
+nx         = 120
+ny         = 480
 
 xmin       = 0.0
 xmax       = 0.16667
@@ -15,10 +15,9 @@ ymin       = 0.0
 ymax       = 1.0
 
 # t_final = 8.9: dt ~ cfl*h/c_max, c ~ sqrt(5/3*2.5/1) ~ 2.04
-# h = 1/384 ~ 0.0026; dt ~ 0.3*0.0026/2.04 ~ 3.8e-4 => steps ~ 23400
-# Use fewer steps for first run, check diagnostics
-steps      = 24000
-save_every = 2400
+# h_y = 1/480 ~ 0.00208; dt ~ 0.3*0.00208/2.04 ~ 3.06e-4 => steps ~ 29000
+steps      = 29200
+save_every = 2000
 
 cfl        = 0.3
 gamma      = 1.6667

@@ -44,4 +44,6 @@ for N in $GRIDS; do
     echo "  Done."
 done
 
-echo "Now run: python3 scripts/plot_vortex_convergence.py"
+echo "Now run:"
+echo "  python3 scripts/plot_vortex_convergence.py --device $DEVICE"
+echo "  cp results/vortex_conv/vortex_convergence.pdf diploma/figures/"

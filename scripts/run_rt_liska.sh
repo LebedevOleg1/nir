@@ -2,10 +2,15 @@
 # Run Rayleigh-Taylor instability using Liska & Wendroff (2003) parameters.
 # Compare density finger pattern at t=8.9 with Liska & Wendroff (2003) Fig.4.4.
 #
-# Usage: ./scripts/run_rt_liska.sh [64x384 | 128x768]
+# Liska & Wendroff 2003 use 120x480 grid on domain [0,1/6]x[0,1].
+# Default here is 120x480 to match the reference for direct visual comparison.
+#
+# Usage: ./scripts/run_rt_liska.sh [NX [NY]]
+#   ./scripts/run_rt_liska.sh          # 120x480 (matches Liska 2003)
+#   ./scripts/run_rt_liska.sh 64 384   # coarser run for quick check
 set -e
-NX=${1:-64}
-NY=${2:-384}
+NX=${1:-120}
+NY=${2:-480}
 BUILD=${BUILD:-build}
 BIN=${BUILD}/problems/rayleigh_taylor/rt
 
@@ -25,4 +30,7 @@ echo "=== RT Liska 2003: ${NX}x${NY}, steps=$STEPS ==="
     --gravity=0.1) \
  2>&1 | tee rt_liska_${NX}x${NY}.log
 
-echo "Done. Visualise VTK in ParaView; compare density at t≈8.9 with Liska (2003) Fig.4.4."
+echo "Done. To generate diploma figure:"
+echo "  python3 scripts/plot_snapshot.py $OUTDIR diploma/figures/rt_liska_${NX}x${NY}.png"
+echo "Also place Liska & Wendroff (2003) Fig.4.4 as:"
+echo "  diploma/figures/rt_liska_reference.png"

@@ -23,4 +23,7 @@ echo "=== KH McNally 2012: ${N}x${N}, steps=$STEPS ==="
     --xmin=0 --xmax=1 --ymin=0 --ymax=1) \
  2>&1 | tee kh_mcnally_${N}.log
 
-echo "Done. Visualise VTK in ParaView; compare density at t≈2 with McNally (2012) Fig.1."
+echo "Done. To generate diploma figure:"
+echo "  python3 scripts/plot_snapshot.py $OUTDIR diploma/figures/kh_mcnally_${N}.png"
+echo "Also place McNally (2012) Fig.1 (top-left panel, 512x512) as:"
+echo "  diploma/figures/kh_mcnally_reference.png"
