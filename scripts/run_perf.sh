@@ -19,7 +19,12 @@ run() {
     local label=$1 dev=$2 muscl=$3 nx=$4 ny=$5 steps=$6 omp=$7
     echo "######## $label : ${nx}x${ny} device=$dev muscl=$muscl steps=$steps ${omp:+OMP=$omp}"
     rm -f output_*.vtk
-    OMP_NUM_THREADS=${omp:-0} mpirun -np 1 "$BIN" \
+    if [ -n "$omp" ]; then
+        export OMP_NUM_THREADS=$omp        # fixed thread count
+    else
+        unset OMP_NUM_THREADS              # OpenMP default = all cores
+    fi
+    mpirun -np 1 "$BIN" \
         --device=$dev --muscl=$muscl --hllc=true \
         --nx=$nx --ny=$ny --steps=$steps --save-every=$((steps + 1)) \
         --xmin=0 --xmax=1 --ymin=0 --ymax=1 2>&1 \
@@ -36,7 +41,9 @@ run "GPU 1st  2048" gpu false 2048 2048 100
 run "GPU MUSCL 2048" gpu true 2048 2048 100
 
 echo "================= CPU (OpenMP, HLLC 1st order) ================="
-run "CPU 1-thread 512"   cpu false 512 512 20 1
-run "CPU all-threads 512" cpu false 512 512 20
+run "CPU 1-thread 512"    cpu false 512  512  20 1
+run "CPU all-threads 512" cpu false 512  512  20
+run "CPU 1-thread 1024"   cpu false 1024 1024 8 1
+run "CPU all-threads 1024" cpu false 1024 1024 8
 
 echo "Done. Per-step time = (wall time)/steps, or use kernel Avg(ms) from Timing Report."
