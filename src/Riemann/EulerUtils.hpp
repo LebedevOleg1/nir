@@ -86,6 +86,107 @@ FVM_HOST_DEVICE FVM_INLINE void euler_hll_flux(
 }
 
 // ============================================================================
+// HLLC (HLL with restored Contact wave) Riemann flux.
+//
+// Unlike HLL, HLLC resolves the middle (contact/shear) wave, so it does not
+// smear contact discontinuities and shear layers. This is essential for
+// shear-driven instabilities (Kelvin-Helmholtz) and interface instabilities
+// (Rayleigh-Taylor): plain HLL numerically damps their growth.
+//
+// Wave structure (Toro 2009, ch.10): SL, S* (contact), SR.
+//   SL >= 0          → F = F_L
+//   SL <= 0 <= S*    → F = F_L + SL*(U*_L - U_L)
+//   S* <= 0 <= SR    → F = F_R + SR*(U*_R - U_R)
+//   SR <= 0          → F = F_R
+// Star states from Toro eq.(10.73). Falls back to HLL if the contact
+// denominator degenerates (near-vacuum), matching the wall described in
+// the report on HLLC NaNs near vacuum.
+// ============================================================================
+FVM_HOST_DEVICE FVM_INLINE void euler_hllc_flux(
+    float rho_L, float rhou_L, float rhov_L, float E_L,
+    float rho_R, float rhou_R, float rhov_R, float E_R,
+    float nx, float ny, float gamma,
+    float& f_rho, float& f_rhou, float& f_rhov, float& f_E
+) {
+    // Left primitive
+    float uL  = rhou_L / rho_L;
+    float vL  = rhov_L / rho_L;
+    float pL  = (gamma - 1.0f) * (E_L - 0.5f * rho_L * (uL*uL + vL*vL));
+    float cL  = euler_sound_speed(rho_L, pL, gamma);
+    float vnL = uL * nx + vL * ny;
+
+    // Right primitive
+    float uR  = rhou_R / rho_R;
+    float vR  = rhov_R / rho_R;
+    float pR  = (gamma - 1.0f) * (E_R - 0.5f * rho_R * (uR*uR + vR*vR));
+    float cR  = euler_sound_speed(rho_R, pR, gamma);
+    float vnR = uR * nx + vR * ny;
+
+    // Davis wave speed estimates
+    float SL = fminf(vnL - cL, vnR - cR);
+    float SR = fmaxf(vnL + cL, vnR + cR);
+
+    // Physical fluxes (F·n)
+    float FL_rho  = rho_L * vnL;
+    float FL_rhou = rhou_L * vnL + pL * nx;
+    float FL_rhov = rhov_L * vnL + pL * ny;
+    float FL_E    = (E_L + pL) * vnL;
+
+    float FR_rho  = rho_R * vnR;
+    float FR_rhou = rhou_R * vnR + pR * nx;
+    float FR_rhov = rhov_R * vnR + pR * ny;
+    float FR_E    = (E_R + pR) * vnR;
+
+    if (SL >= 0.0f) {
+        f_rho = FL_rho; f_rhou = FL_rhou; f_rhov = FL_rhov; f_E = FL_E;
+        return;
+    }
+    if (SR <= 0.0f) {
+        f_rho = FR_rho; f_rhou = FR_rhou; f_rhov = FR_rhov; f_E = FR_E;
+        return;
+    }
+
+    // Contact wave speed S*
+    float denom = rho_L * (SL - vnL) - rho_R * (SR - vnR);
+    if (fabsf(denom) < 1e-12f) {
+        // Degenerate: fall back to HLL
+        float inv = 1.0f / (SR - SL);
+        f_rho  = (SR*FL_rho  - SL*FR_rho  + SL*SR*(rho_R  - rho_L))  * inv;
+        f_rhou = (SR*FL_rhou - SL*FR_rhou + SL*SR*(rhou_R - rhou_L)) * inv;
+        f_rhov = (SR*FL_rhov - SL*FR_rhov + SL*SR*(rhov_R - rhov_L)) * inv;
+        f_E    = (SR*FL_E    - SL*FR_E    + SL*SR*(E_R    - E_L))    * inv;
+        return;
+    }
+    float Sstar = (pR - pL + rho_L*vnL*(SL - vnL) - rho_R*vnR*(SR - vnR)) / denom;
+
+    if (Sstar >= 0.0f) {
+        // Left star state U*_L (Toro 10.73)
+        float coef = rho_L * (SL - vnL) / (SL - Sstar);
+        float rho_s  = coef;
+        float rhou_s = coef * (uL + (Sstar - vnL) * nx);
+        float rhov_s = coef * (vL + (Sstar - vnL) * ny);
+        float E_s    = coef * (E_L / rho_L +
+                               (Sstar - vnL) * (Sstar + pL / (rho_L * (SL - vnL))));
+        f_rho  = FL_rho  + SL * (rho_s  - rho_L);
+        f_rhou = FL_rhou + SL * (rhou_s - rhou_L);
+        f_rhov = FL_rhov + SL * (rhov_s - rhov_L);
+        f_E    = FL_E    + SL * (E_s    - E_L);
+    } else {
+        // Right star state U*_R (Toro 10.73)
+        float coef = rho_R * (SR - vnR) / (SR - Sstar);
+        float rho_s  = coef;
+        float rhou_s = coef * (uR + (Sstar - vnR) * nx);
+        float rhov_s = coef * (vR + (Sstar - vnR) * ny);
+        float E_s    = coef * (E_R / rho_R +
+                               (Sstar - vnR) * (Sstar + pR / (rho_R * (SR - vnR))));
+        f_rho  = FR_rho  + SR * (rho_s  - rho_R);
+        f_rhou = FR_rhou + SR * (rhou_s - rhou_R);
+        f_rhov = FR_rhov + SR * (rhov_s - rhov_R);
+        f_E    = FR_E    + SR * (E_s    - E_R);
+    }
+}
+
+// ============================================================================
 // MUSCL reconstruction helpers
 // ============================================================================
 

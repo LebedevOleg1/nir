@@ -108,7 +108,8 @@ FVM_HOST_DEVICE FVM_INLINE void compute_cell_update_euler(
     const float gamma,
     const float dt,
     const float gravity = 0.0f,
-    const int do_muscl = 0
+    const int do_muscl = 0,
+    const int use_hllc = 1
 ) {
     if (i >= ncells) return;
 
@@ -197,11 +198,19 @@ FVM_HOST_DEVICE FVM_INLINE void compute_cell_update_euler(
         }
 
         float f_rho, f_rhou, f_rhov, f_E;
-        euler_hll_flux(
-            rhoL, rhouL, rhovL, EL,
-            rhoR, rhouR, rhovR, ER,
-            nx, ny, gamma,
-            f_rho, f_rhou, f_rhov, f_E);
+        if (use_hllc) {
+            euler_hllc_flux(
+                rhoL, rhouL, rhovL, EL,
+                rhoR, rhouR, rhovR, ER,
+                nx, ny, gamma,
+                f_rho, f_rhou, f_rhov, f_E);
+        } else {
+            euler_hll_flux(
+                rhoL, rhouL, rhovL, EL,
+                rhoR, rhouR, rhovR, ER,
+                nx, ny, gamma,
+                f_rho, f_rhou, f_rhov, f_E);
+        }
 
         float area  = face_area[fi];
         flux_rho  += f_rho  * area;

@@ -14,9 +14,16 @@ NY=${2:-480}
 BUILD=${BUILD:-build}
 BIN=${BUILD}/problems/rayleigh_taylor/rt
 
-# Steps: t_final=8.9, h_y=1/NY, c~sqrt(5/3*2.5/1)~2.04
-# dt~cfl*h/(c) ~ 0.3*(1/NY)/2.04 => steps ~ 8.9*NY*2.04/0.3
-STEPS=$(python3 -c "import math; print(int(8.9 * $NY * 2.04 / 0.3) + 200)")
+# Steps to reach t_final=8.9. dt = cfl*h_min/c_max, and h_min = min(hx,hy)
+# where hx = (1/6)/NX, hy = 1/NY. The solver uses the SMALLER of the two,
+# so steps must be computed from h_min (else we undershoot t_final).
+# c_max ~ |v| + sqrt(gamma*p/rho), with growth use ~2.6.
+STEPS=$(python3 -c "
+nx=$NX; ny=$NY
+hx=(1.0/6.0)/nx; hy=1.0/ny
+h=min(hx,hy); cmax=2.6
+print(int(8.9*cmax/(0.3*h))+1000)
+")
 
 OUTDIR="results/rt_liska_${NX}x${NY}"
 mkdir -p "$OUTDIR"

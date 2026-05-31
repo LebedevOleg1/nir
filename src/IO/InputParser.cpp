@@ -73,6 +73,7 @@ static void apply_kv(SimConfig& cfg, const std::string& key, const std::string& 
     else if (key == "bc-top"    || key == "bc_top")    cfg.bc[(int)Boundary::Top]    = parse_bc(val);
     else if (key == "source")      cfg.source     = parse_source(val);
     else if (key == "muscl")       cfg.muscl      = (val == "true" || val == "1" || val == "yes");
+    else if (key == "hllc")        cfg.hllc       = (val == "true" || val == "1" || val == "yes");
     // silently ignore unknown keys (future compatibility)
 }
 
@@ -189,7 +190,9 @@ void InputParser::print(const SimConfig& cfg, int rank) {
               << "cfl=" << cfg.cfl;
     if (cfg.physics == PhysicsType::Euler)
         std::cout << " gamma=" << cfg.gamma << " gravity=" << cfg.gravity
-                  << " ic=" << cfg.ic;
+                  << " ic=" << cfg.ic
+                  << " riemann=" << (cfg.hllc ? "HLLC" : "HLL")
+                  << " muscl=" << (cfg.muscl ? "on" : "off");
     else
         std::cout << " kappa=" << cfg.kappa;
     std::cout << "\nbc: left=" << bc_name(cfg.bc[0].type)

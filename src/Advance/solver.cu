@@ -168,13 +168,14 @@ void Solver<PhysicsType::Euler>::step_gpu() {
     float gravity_ = config.gravity;
     float dt_      = dt;
     int   muscl_   = config.muscl ? 1 : 0;
+    int   hllc_    = config.hllc ? 1 : 0;
 
     ParallelFor(true, n, [=] FVM_HOST_DEVICE (int i) {
         compute_cell_update_euler(
             i, d_curr, d_next, d_vol,
             d_fo, d_fn, d_fa, d_fd,
             d_fnx, d_fny, d_cf, d_fso, d_fsn,
-            n, nt, gamma_, dt_, gravity_, muscl_);
+            n, nt, gamma_, dt_, gravity_, muscl_, hllc_);
     });
 
     cudaDeviceSynchronize();
@@ -209,6 +210,7 @@ void Solver<PhysicsType::Euler>::step_rk2_gpu() {
     float gravity_ = config.gravity;
     float dt_      = dt;
     int   muscl_   = config.muscl ? 1 : 0;
+    int   hllc_    = config.hllc ? 1 : 0;
 
     // Save U^n → rk_aux
     thrust::copy(gpu_state.curr.begin(), gpu_state.curr.end(), gpu_state.rk_aux.begin());
@@ -219,7 +221,7 @@ void Solver<PhysicsType::Euler>::step_rk2_gpu() {
             i, d_curr, d_next, d_vol,
             d_fo, d_fn, d_fa, d_fd,
             d_fnx, d_fny, d_cf, d_fso, d_fsn,
-            n, nt, gamma_, dt_, gravity_, muscl_);
+            n, nt, gamma_, dt_, gravity_, muscl_, hllc_);
     });
     cudaDeviceSynchronize();
 
@@ -242,7 +244,7 @@ void Solver<PhysicsType::Euler>::step_rk2_gpu() {
             i, d_ustar, d_uout, d_vol,
             d_fo, d_fn, d_fa, d_fd,
             d_fnx, d_fny, d_cf, d_fso, d_fsn,
-            n, nt, gamma_, dt_, gravity_, muscl_);
+            n, nt, gamma_, dt_, gravity_, muscl_, hllc_);
     });
     cudaDeviceSynchronize();
 

@@ -46,6 +46,10 @@ struct SimConfig {
     // Second-order MUSCL reconstruction + SSP-RK2 time integration
     bool muscl = false;
 
+    // Riemann solver for Euler: true = HLLC (resolves contact, default),
+    // false = HLL (more diffusive, smears contact/shear layers).
+    bool hllc = true;
+
     // Source term (Heat / Diffusion)
     SourceSpec source;
 };

@@ -355,12 +355,13 @@ void Solver<P>::step_cpu() {
         float gravity_ = config.gravity;
         float dt_      = dt;
         int   muscl_   = config.muscl ? 1 : 0;
+        int   hllc_    = config.hllc ? 1 : 0;
         ParallelFor(false, ncells, [=] FVM_HOST_DEVICE (int i) {
             compute_cell_update_euler(
                 i, U_curr, U_next, vols,
                 f_owner, f_neighbor, f_area, f_distance,
                 fnx, fny, cf, fso, fsn,
-                ncells, ncells_total, gamma_, dt_, gravity_, muscl_);
+                ncells, ncells_total, gamma_, dt_, gravity_, muscl_, hllc_);
         });
     }
 
