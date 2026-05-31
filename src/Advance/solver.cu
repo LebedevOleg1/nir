@@ -2,6 +2,7 @@
 // nvcc compiles both the CPU template bodies (via solver_impl.inl)
 // and the GPU-specific specializations below.
 
+#include "Advance/Solver.hpp"
 #include "Riemann/FluxKernels.hpp"
 #include "Riemann/EulerUtils.hpp"
 #include "Riemann/BCKernel.hpp"
