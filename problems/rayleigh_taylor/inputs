@@ -6,8 +6,8 @@
 physics    = euler
 device     = gpu
 
-nx         = 120
-ny         = 480
+nx         = 100
+ny         = 400
 
 xmin       = 0.0
 xmax       = 0.16667

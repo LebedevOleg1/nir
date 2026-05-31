@@ -14,8 +14,7 @@
 // Inner strip (0.25 < y < 0.75):  rho=rho2=2, u=+0.5
 // Outer region:                   rho=rho1=1, u=-0.5
 // Transition width sigma = 0.05/sqrt(2).
-// Single-mode perturbation: v = w0*sin(2*pi*x)*(exp[...]+exp[...])
-// w0 = 0.1.
+// Transverse perturbation (McNally eq.5): v = w0*sin(4*pi*x), w0 = 0.01.
 //
 // Compare density field at t=2 on 512x512 with McNally et al. Fig.1.
 // ============================================================================
@@ -28,7 +27,7 @@ struct KHPhysics {
     static constexpr float u2         =  0.5f;         // inner x-velocity
     static constexpr float p0         = 2.5f;          // uniform background pressure
     static constexpr float sigma      = 0.05f / 1.41421356f;  // 0.05/sqrt(2)
-    static constexpr float w0         = 0.1f;          // perturbation amplitude
+    static constexpr float w0         = 0.01f;         // McNally eq.5 amplitude
     static constexpr const char* ic_name = "kh";
     static constexpr const char* name    = "kelvin_helmholtz";
 };

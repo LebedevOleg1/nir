@@ -1,6 +1,7 @@
 #!/bin/bash
 # Run Kelvin-Helmholtz instability using McNally et al. (2012) parameters.
-# Compare result at t=2 with McNally et al. (2012), ApJS 201, 18, Fig.1 (top-left).
+# Compare result at t=1.5 with McNally et al. (2012), ApJS 201, 18, Fig.2
+# (reference Pencil Code solution, density at t=1.5).
 #
 # Usage: ./scripts/run_kh_mcnally.sh [512|1024]
 set -e
@@ -8,9 +9,9 @@ N=${1:-512}
 BUILD=${BUILD:-build}
 BIN=${BUILD}/problems/kelvin_helmholtz/kh
 
-# Steps: t_final=2, h=1/N, dt~cfl*h/(|u|+c), c=sqrt(5/3*2.5/2)=1.44, u=0.5
-# dt ~ 0.4*(1/N)/(0.5+1.44) ~ 0.206/N => steps ~ 2*N/0.206 = 9.7*N
-STEPS=$(python3 -c "import math; print(int(2.0 / (0.4 * (1.0/$N) / 1.94) + 50))")
+# Steps: t_final=1.5, h=1/N, dt~cfl*h/(|u|+c), c=sqrt(5/3*2.5/1)=2.04, u=0.5
+# dt ~ 0.4*(1/N)/(0.5+2.04) ~ 0.157/N => steps ~ 1.5*N/0.157 = 9.5*N
+STEPS=$(python3 -c "import math; print(int(1.5 / (0.4 * (1.0/$N) / 2.54) + 50))")
 
 OUTDIR="results/kh_mcnally_${N}"
 mkdir -p "$OUTDIR"
@@ -25,5 +26,4 @@ echo "=== KH McNally 2012: ${N}x${N}, steps=$STEPS ==="
 
 echo "Done. To generate diploma figure:"
 echo "  python3 scripts/plot_snapshot.py $OUTDIR diploma/figures/kh_mcnally_${N}.png"
-echo "Also place McNally (2012) Fig.1 (top-left panel, 512x512) as:"
-echo "  diploma/figures/kh_mcnally_reference.png"
+echo "Compare with McNally (2012) Fig.2 (reference density at t=1.5)."

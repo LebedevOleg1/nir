@@ -1,28 +1,28 @@
 #!/bin/bash
 # Run Rayleigh-Taylor instability using Liska & Wendroff (2003) parameters.
-# Compare density finger pattern at t=8.9 with Liska & Wendroff (2003) Fig.4.4.
+# Compare density at T=8.5 with Liska & Wendroff (2003) Fig.4.8.
 #
-# Liska & Wendroff 2003 use 120x480 grid on domain [0,1/6]x[0,1].
-# Default here is 120x480 to match the reference for direct visual comparison.
+# Liska & Wendroff 2003 use a 100x400 grid on domain [0,1/6]x[0,1], T=8.5.
+# Default here matches the reference for the most correct comparison.
 #
 # Usage: ./scripts/run_rt_liska.sh [NX [NY]]
-#   ./scripts/run_rt_liska.sh          # 120x480 (matches Liska 2003)
-#   ./scripts/run_rt_liska.sh 64 384   # coarser run for quick check
+#   ./scripts/run_rt_liska.sh          # 100x400 (matches Liska 2003)
+#   ./scripts/run_rt_liska.sh 64 256   # coarser run for quick check
 set -e
-NX=${1:-120}
-NY=${2:-480}
+NX=${1:-100}
+NY=${2:-400}
 BUILD=${BUILD:-build}
 BIN=${BUILD}/problems/rayleigh_taylor/rt
 
-# Steps to reach t_final=8.9. dt = cfl*h_min/c_max, and h_min = min(hx,hy)
+# Steps to reach T_final=8.5. dt = cfl*h_min/c_max, h_min = min(hx,hy)
 # where hx = (1/6)/NX, hy = 1/NY. The solver uses the SMALLER of the two,
-# so steps must be computed from h_min (else we undershoot t_final).
+# so steps must be computed from h_min (else we undershoot T_final).
 # c_max ~ |v| + sqrt(gamma*p/rho), with growth use ~2.6.
 STEPS=$(python3 -c "
 nx=$NX; ny=$NY
 hx=(1.0/6.0)/nx; hy=1.0/ny
 h=min(hx,hy); cmax=2.6
-print(int(8.9*cmax/(0.3*h))+1000)
+print(int(8.5*cmax/(0.3*h))+1000)
 ")
 
 OUTDIR="results/rt_liska_${NX}x${NY}"
@@ -39,5 +39,4 @@ echo "=== RT Liska 2003: ${NX}x${NY}, steps=$STEPS ==="
 
 echo "Done. To generate diploma figure:"
 echo "  python3 scripts/plot_snapshot.py $OUTDIR diploma/figures/rt_liska_${NX}x${NY}.png"
-echo "Also place Liska & Wendroff (2003) Fig.4.4 as:"
-echo "  diploma/figures/rt_liska_reference.png"
+echo "Compare with Liska & Wendroff (2003) Fig.4.8 (PPM panel)."

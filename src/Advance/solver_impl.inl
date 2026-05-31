@@ -109,16 +109,17 @@ void Solver<P>::set_initial_conditions() {
         }
         else if (config.ic == "kh") {
             // Kelvin-Helmholtz: McNally, Lyra & Tassoul (2012) benchmark.
-            // Smooth tanh density/velocity profiles, single-mode perturbation.
+            // Smooth tanh density/velocity profiles; transverse velocity
+            // perturbation V_y = w0 * sin(4*pi*x) (McNally eq.5), giving two
+            // vortices per interface (matches McNally Fig.2 reference).
             // Domain [0,1]x[0,1]; rho1=1 (outer), rho2=2 (inner), p=2.5, gamma=5/3.
-            // sigma = 0.05/sqrt(2), w0=0.1 (perturbation amplitude).
+            // sigma = 0.05/sqrt(2), w0=0.01.
             float pi    = 3.14159265f;
             float p0    = 2.5f;
             float rho1  = 1.0f, rho2 = 2.0f;
             float u1    = -0.5f, u2  = 0.5f;
-            // Use sigma from config or default
             float sigma = 0.05f / 1.41421356f;  // 0.05/sqrt(2)
-            float w0    = 0.1f;
+            float w0    = 0.01f;                  // McNally eq.5 amplitude
             float y1    = y_off + 0.25f * Ly;
             float y2    = y_off + 0.75f * Ly;
 
@@ -132,10 +133,8 @@ void Solver<P>::set_initial_conditions() {
                 float u   = u1  + (u2  - u1)  * 0.5f *
                             (tanhf((y - y1) / sigma) - tanhf((y - y2) / sigma));
 
-                // McNally eq.(4): single-mode v perturbation localised at interfaces
-                float env1 = expf(-(y - y1) * (y - y1) / (2.0f * sigma * sigma));
-                float env2 = expf(-(y - y2) * (y - y2) / (2.0f * sigma * sigma));
-                float v    = w0 * sinf(2.0f * pi * x / Lx) * (env1 + env2);
+                // McNally eq.(5): transverse perturbation, two periods in x
+                float v    = w0 * sinf(4.0f * pi * x / Lx);
 
                 float E = p0 / (gamma - 1.0f) + 0.5f * rho * (u * u + v * v);
                 state.curr[0 * ncells_total + i] = rho;
