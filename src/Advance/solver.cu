@@ -4,6 +4,7 @@
 
 #include "Riemann/FluxKernels.hpp"
 #include "Riemann/EulerUtils.hpp"
+#include "Riemann/BCKernel.hpp"
 #include "Base/ParallelFor.hpp"
 #include "Base/FieldView.hpp"
 #include "Timing/Timer.hpp"
@@ -11,6 +12,55 @@
 #include <thrust/transform_reduce.h>
 #include <thrust/functional.h>
 #include <thrust/iterator/counting_iterator.h>
+
+// ============================================================================
+// GPU boundary conditions for Euler.
+//
+// Fills ghost-cell values of a given state buffer directly on the GPU by
+// looping over all faces and applying apply_bc_euler() to boundary faces.
+// POD struct EulerBCSpecs is captured by value into the device lambda
+// (plain arrays inside a struct copy cleanly into extended lambdas).
+// ============================================================================
+struct EulerBCSpecs {
+    int   type[4];
+    float rho[4], u[4], v[4], p[4];
+};
+
+static void apply_euler_bcs_gpu_buffer(
+    float* d_U, const GpuMesh& gm, const SimConfig& cfg)
+{
+    int nfaces = gm.nfaces;
+    int nt     = gm.ncells_total;
+
+    const int*   d_bid = thrust::raw_pointer_cast(gm.face_boundary_id.data());
+    const int*   d_fo  = thrust::raw_pointer_cast(gm.faces.owner.data());
+    const int*   d_fn  = thrust::raw_pointer_cast(gm.faces.neighbor.data());
+    const float* d_fnx = thrust::raw_pointer_cast(gm.faces.normal_x.data());
+    const float* d_fny = thrust::raw_pointer_cast(gm.faces.normal_y.data());
+    float gamma_ = cfg.gamma;
+
+    EulerBCSpecs bcs;
+    for (int b = 0; b < 4; ++b) {
+        bcs.type[b] = (int)cfg.bc[b].type;
+        bcs.rho[b]  = cfg.bc[b].inlet_rho;
+        bcs.u[b]    = cfg.bc[b].inlet_u;
+        bcs.v[b]    = cfg.bc[b].inlet_v;
+        bcs.p[b]    = cfg.bc[b].inlet_p;
+    }
+
+    ParallelFor(true, nfaces, [=] FVM_HOST_DEVICE (int fi) {
+        int bid = d_bid[fi];
+        if (bid < 0) return;                 // not a BC ghost face
+        int ghost    = d_fn[fi];
+        int interior = d_fo[fi];
+        apply_bc_euler(ghost, interior, d_U, nt,
+                       (BCType)bcs.type[bid],
+                       d_fnx[fi], d_fny[fi],
+                       bcs.rho[bid], bcs.u[bid], bcs.v[bid], bcs.p[bid],
+                       gamma_);
+    });
+    cudaDeviceSynchronize();
+}
 
 // All CPU template method bodies (constructor, step_cpu, solve, etc.)
 #include "Advance/solver_impl.inl"
@@ -173,6 +223,14 @@ void Solver<PhysicsType::Euler>::step_rk2_gpu() {
     cudaDeviceSynchronize();
 
     // After stage 1: curr = U^n (rk_aux), next = U*
+    // The kernel only writes interior cells [0, ncells); ghost cells of the
+    // next buffer are stale/garbage. Stage-2 MUSCL reconstruction reads ghost
+    // cells at non-periodic boundaries (walls), so we must refresh them here.
+    // For periodic problems (n_ghost_bc == 0) this is a no-op.
+    if (mesh.get_n_ghost_bc() > 0)
+        apply_euler_bcs_gpu_buffer(
+            thrust::raw_pointer_cast(gpu_state.next.data()), gpu_mesh, config);
+
     // Stage 2: next → curr  (curr = U**)
     // Swap roles: input = next (U*), output = curr (U**)
     float* d_ustar = thrust::raw_pointer_cast(gpu_state.next.data());
@@ -245,10 +303,16 @@ float Solver<PhysicsType::Diffusion>::compute_dt_gpu() {
     return config.cfl * 0.25f * h * h / config.kappa;
 }
 
-// GPU BC stubs (BC applied on CPU: download→apply→upload in solve loop)
+// GPU BC: Heat/Diffusion still use the CPU path (download→apply→upload).
 template<> void Solver<PhysicsType::Heat>::apply_bcs_gpu()      {}
 template<> void Solver<PhysicsType::Diffusion>::apply_bcs_gpu() {}
-template<> void Solver<PhysicsType::Euler>::apply_bcs_gpu()     {}
+
+// Euler: fill ghost cells of the curr buffer directly on the GPU.
+template<> void Solver<PhysicsType::Euler>::apply_bcs_gpu() {
+    if (mesh.get_n_ghost_bc() == 0) return;   // periodic: nothing to do
+    apply_euler_bcs_gpu_buffer(
+        thrust::raw_pointer_cast(gpu_state.curr.data()), gpu_mesh, config);
+}
 
 // step_rk2_gpu stubs for non-Euler physics (RK2 is only needed for Euler)
 template<> void Solver<PhysicsType::Heat>::step_rk2_gpu()      { step_gpu(); }
