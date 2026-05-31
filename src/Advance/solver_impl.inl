@@ -73,6 +73,26 @@ void Solver<P>::set_initial_conditions() {
                 state.curr[3*ncells_total+i] = E;
             }
         }
+        else if (config.ic == "vacuum") {
+            // Double rarefaction / "123 problem" (Toro 2009, test 2):
+            // rho=1, p=0.4 everywhere; u_L=-2 (x<mid), u_R=+2 (x>mid).
+            // Two rarefactions move apart, creating a near-vacuum region at
+            // the centre. Classic stress test for the HLLC contact-wave
+            // formula (division by a vanishing density) — verifies the HLL
+            // fallback / floor logic keeps the solution physical.
+            float x_mid = x_off + 0.5f * Lx;
+            for (int i = 0; i < ncells; ++i) {
+                float x = mesh.centers[i].x;
+                float rho = 1.0f, p = 0.4f;
+                float u = (x < x_mid) ? -2.0f : 2.0f;
+                float v = 0.0f;
+                float E = p / (gamma - 1.0f) + 0.5f * rho * (u*u + v*v);
+                state.curr[0*ncells_total+i] = rho;
+                state.curr[1*ncells_total+i] = rho*u;
+                state.curr[2*ncells_total+i] = rho*v;
+                state.curr[3*ncells_total+i] = E;
+            }
+        }
         else if (config.ic == "blast") {
             float cx = x_off + 0.5f*Lx, cy = y_off + 0.5f*Ly;
             float r  = 0.1f * Lx;

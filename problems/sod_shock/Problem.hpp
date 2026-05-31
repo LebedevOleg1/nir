@@ -15,7 +15,9 @@
 inline void run_problem(int argc, char** argv) {
     SimConfig cfg = InputParser::load("inputs", argc, argv);
     cfg.physics = SodPhysics::type;
-    cfg.ic      = SodPhysics::ic_name;
+    // Respect an explicit ic from inputs/CLI (e.g. --ic=vacuum); default to Sod.
+    if (cfg.ic.empty() || cfg.ic == "default")
+        cfg.ic = SodPhysics::ic_name;
 
     // Thin strip: periodic in Y (effectively 1D problem)
     for (int i = 0; i < 4; ++i) cfg.bc[i].type = BCType::Periodic;
