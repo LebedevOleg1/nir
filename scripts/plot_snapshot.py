@@ -100,7 +100,9 @@ _LABELS = {
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("vtk_dir", help="Directory with output_*.vtk files")
+    parser.add_argument("vtk_path",
+                        help="Directory with output_*.vtk files (uses last frame), "
+                             "or a specific .vtk file")
     parser.add_argument("out_png", help="Output PNG path")
     parser.add_argument("--field", default="Density",
                         choices=list(_CMAPS.keys()))
@@ -111,13 +113,15 @@ def main():
     parser.add_argument("--title", default=None)
     args = parser.parse_args()
 
-    vtk_dir = Path(args.vtk_dir)
-    vtk_files = sorted(vtk_dir.glob("output_*.vtk"))
-    if not vtk_files:
-        print(f"Error: no output_*.vtk files in '{vtk_dir}'")
-        sys.exit(1)
-
-    last_vtk = vtk_files[-1]
+    p = Path(args.vtk_path)
+    if p.is_file() and p.suffix == ".vtk":
+        last_vtk = p
+    else:
+        vtk_files = sorted(p.glob("output_*.vtk"))
+        if not vtk_files:
+            print(f"Error: no output_*.vtk files in '{p}'")
+            sys.exit(1)
+        last_vtk = vtk_files[-1]
     print(f"Reading {last_vtk} ...")
 
     x, y, field = read_vtk(last_vtk, args.field)
