@@ -11,7 +11,8 @@
 // Setup: heavy fluid (rho=2) above light fluid (rho=1), gravity g=0.1 downward.
 // Domain [0, 1/6] x [0, 1].  gamma=5/3.
 // Initial pressure: hydrostatic equilibrium.
-// Perturbation: v = 0.01*(1 + cos(8*pi*x))*(1 + cos(3*pi*y))/4 near interface.
+// Perturbation: single-mode, localized at interface y=0.5:
+//   v = 0.01*(1 + cos(2*pi*x/Lx))*(1 + cos(2*pi*(y-0.5)/Ly))/4
 //
 // Compare density finger pattern at t=8.9 with Liska & Wendroff (2003) Fig.4.4.
 // ============================================================================

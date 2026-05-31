@@ -164,7 +164,10 @@ void Solver<P>::set_initial_conditions() {
             // Gravity g pointing in -y direction.
             // Hydrostatic pressure: p(y) = p_top + g*rho_heavy*(1-y) for y>0.5
             //                              p(y) = p_top + g*rho_heavy*0.5 + g*rho_light*(0.5-y) for y<0.5
-            // Perturbation: v = 0.01*(1+cos(8*pi*x/Lx))*(1+cos(3*pi*y/Ly))/4
+            // Single-mode perturbation localized at the interface y=0.5:
+            //   v = 0.01*(1+cos(2*pi*x/Lx))*(1+cos(2*pi*(y-0.5)/Ly))/4
+            // One wavelength across the domain in x (one finger), smoothly
+            // vanishing at the top/bottom walls in y.
             float pi       = 3.14159265f;
             float g        = (config.gravity > 0) ? config.gravity : 0.1f;
             float rho_h    = 2.0f, rho_l = 1.0f;
@@ -187,9 +190,11 @@ void Solver<P>::set_initial_conditions() {
                     p   = p_mid + g * rho_l * (y_mid - y);
                 }
 
-                // Perturbation velocity (Liska 2003)
-                float v = 0.01f * (1.0f + cosf(8.0f * pi * x / Lx))
-                                * (1.0f + cosf(3.0f * pi * y / Ly)) / 4.0f;
+                // Single-mode perturbation, localized at the interface y_mid.
+                // (1+cos(2*pi*x/Lx)): one wavelength across the width.
+                // (1+cos(2*pi*(y-y_mid)/Ly)): peaks at y_mid, zero at walls.
+                float v = 0.01f * (1.0f + cosf(2.0f * pi * x / Lx))
+                                * (1.0f + cosf(2.0f * pi * (y - y_mid) / Ly)) / 4.0f;
 
                 float E = p / (gamma - 1.0f) + 0.5f * rho * v * v;
                 state.curr[0 * ncells_total + i] = rho;
