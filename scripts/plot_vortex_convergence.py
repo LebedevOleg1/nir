@@ -184,7 +184,7 @@ def main():
 
     if valid_hll:
         hv, ev = zip(*valid_hll)
-        ax.loglog(hv, ev, 'o-', label='HLL (1-й порядок)', color='steelblue', linewidth=1.5)
+        ax.loglog(hv, ev, 'o-', label='1-й порядок (без реконстр.)', color='steelblue', linewidth=1.5)
     if valid_muscl:
         hv, ev = zip(*valid_muscl)
         ax.loglog(hv, ev, 's-', label='MUSCL+SSP-RK2 (2-й порядок)', color='tomato', linewidth=1.5)
