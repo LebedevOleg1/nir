@@ -6,40 +6,41 @@
 # Usage: ./scripts/run_vortex_convergence.sh [cpu|gpu]
 set -e
 DEVICE=${1:-gpu}
+ROOT=$(pwd)                       # project root (run from there)
 BUILD=${BUILD:-build}
-BIN=${BUILD}/problems/isentropic_vortex/vortex
+BIN="${ROOT}/${BUILD}/problems/isentropic_vortex/vortex"
+INPUTS="${ROOT}/problems/isentropic_vortex/inputs"
 
 GRIDS="32 64 128 256"
-GAMMA=1.4
 # u_inf=1, c_inf ~ sqrt(1.4) ~ 1.183; one period t=10; dt ~ cfl*h/(u+c) ~ 0.4*(10/N)/2.18
 # steps = t_final / dt = 10 / (0.4*(10/N)/2.18) = 10*N*2.18/(10*0.4) = N*5.45
 STEPS_FACTOR=6   # steps = STEPS_FACTOR * N (conservative, overshoots t=10 slightly)
 
-mkdir -p results/vortex_conv
+mkdir -p "${ROOT}/results/vortex_conv"
 
 for N in $GRIDS; do
     STEPS=$((STEPS_FACTOR * N))
-    OUTDIR="results/vortex_conv/N${N}_${DEVICE}"
+    OUTDIR="${ROOT}/results/vortex_conv/N${N}_${DEVICE}"
     mkdir -p "$OUTDIR"
     echo "=== Grid ${N}x${N}, steps=$STEPS, device=$DEVICE ==="
 
-    # Without MUSCL (1st order HLL)
-    (cd "$OUTDIR" && cp -r ../../problems/isentropic_vortex/inputs . &&
-     mpirun -np 1 ../../${BIN} \
+    # 1st order (no reconstruction, donor-cell)
+    (cd "$OUTDIR" && cp -r "$INPUTS" . &&
+     mpirun -np 1 "$BIN" \
         --nx=$N --ny=$N --steps=$STEPS --save-every=$STEPS \
         --device=$DEVICE --muscl=false \
         --xmin=-5 --xmax=5 --ymin=-5 --ymax=5) \
-     > results/vortex_conv/hll_${N}.log 2>&1
+     > "${ROOT}/results/vortex_conv/hll_${N}.log" 2>&1
 
-    # With MUSCL (2nd order)
-    OUTDIRM="results/vortex_conv/N${N}_${DEVICE}_muscl"
+    # 2nd order (MUSCL + SSP-RK2)
+    OUTDIRM="${ROOT}/results/vortex_conv/N${N}_${DEVICE}_muscl"
     mkdir -p "$OUTDIRM"
-    (cd "$OUTDIRM" && cp -r ../../problems/isentropic_vortex/inputs . &&
-     mpirun -np 1 ../../${BIN} \
+    (cd "$OUTDIRM" && cp -r "$INPUTS" . &&
+     mpirun -np 1 "$BIN" \
         --nx=$N --ny=$N --steps=$STEPS --save-every=$STEPS \
         --device=$DEVICE --muscl=true \
         --xmin=-5 --xmax=5 --ymin=-5 --ymax=5) \
-     > results/vortex_conv/muscl_${N}.log 2>&1
+     > "${ROOT}/results/vortex_conv/muscl_${N}.log" 2>&1
 
     echo "  Done."
 done
