@@ -25,7 +25,7 @@ from pathlib import Path
 
 # ─── Vortex parameters (must match Physics.hpp / solver_impl.inl) ────────────
 GAMMA   = 1.4
-U_INF   = 1.0
+U_INF   = 0.0   # stationary vortex: exact solution = initial condition
 V_INF   = 0.0
 RHO_INF = 1.0
 T_INF   = 1.0
@@ -36,7 +36,7 @@ LX = XMAX - XMIN
 LY = YMAX - YMIN
 
 GRIDS = [32, 64, 128, 256]
-STEPS_FACTOR = 6   # must match run_vortex_convergence.sh
+STEPS_FACTOR = 1   # must match run_vortex_convergence.sh
 
 
 # ─── Binary VTK reader (RECTILINEAR_GRID, big-endian float32) ────────────────

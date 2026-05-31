@@ -128,7 +128,7 @@ void Solver<P>::set_initial_conditions() {
             // Isentropic vortex (Yee et al. 1999): smooth exact solution for
             // convergence testing. Background: rho=1, u=1, v=0, T=1, gamma=1.4.
             float pi      = 3.14159265f;
-            float u_inf   = 1.0f, v_inf = 0.0f;
+            float u_inf   = 0.0f, v_inf = 0.0f;  // stationary vortex (convergence test)
             float rho_inf = 1.0f;
             float T_inf   = 1.0f;
             float eps     = 5.0f;   // vortex strength

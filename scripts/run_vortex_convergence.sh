@@ -12,9 +12,11 @@ BIN="${ROOT}/${BUILD}/problems/isentropic_vortex/vortex"
 INPUTS="${ROOT}/problems/isentropic_vortex/inputs"
 
 GRIDS="32 64 128 256"
-# u_inf=1, c_inf ~ sqrt(1.4) ~ 1.183; one period t=10; dt ~ cfl*h/(u+c) ~ 0.4*(10/N)/2.18
-# steps = t_final / dt = 10 / (0.4*(10/N)/2.18) = 10*N*2.18/(10*0.4) = N*5.45
-STEPS_FACTOR=6   # steps = STEPS_FACTOR * N (conservative, overshoots t=10 slightly)
+# Stationary vortex (u_inf=0). Integrate to a short fixed time (t~2) so the
+# error is in the asymptotic regime (vortex not yet destroyed by dissipation).
+# dt ~ cfl*h/c_max, c_max~1.8 (rotation+sound); steps = STEPS_FACTOR*N keeps
+# t_final ~ const across grids (steps proportional to N, dt proportional to 1/N).
+STEPS_FACTOR=1   # steps = STEPS_FACTOR * N  ->  t_final ~ 2
 
 mkdir -p "${ROOT}/results/vortex_conv"
 
