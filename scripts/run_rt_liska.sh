@@ -37,6 +37,6 @@ echo "=== RT Liska 2003: ${NX}x${NY}, steps=$STEPS ==="
     --gravity=0.1) \
  2>&1 | tee rt_liska_${NX}x${NY}.log
 
-echo "Done. To generate diploma figure:"
-echo "  python3 scripts/plot_snapshot.py $OUTDIR diploma/figures/rt_liska_${NX}x${NY}.png"
-echo "Compare with Liska & Wendroff (2003) Fig.4.8 (PPM panel)."
+echo "Done. To generate diploma figure (mirror half-mushroom -> full, as Liska):"
+echo "  python3 scripts/plot_snapshot.py $OUTDIR/output_0012.vtk diploma/figures/rt_liska_${NX}x${NY}.png --mirror"
+echo "Compare with Liska & Wendroff (2003) Fig.4.8."

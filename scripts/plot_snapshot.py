@@ -111,6 +111,9 @@ def main():
     parser.add_argument("--dpi", type=int, default=200)
     parser.add_argument("--no-colorbar", action="store_true")
     parser.add_argument("--title", default=None)
+    parser.add_argument("--mirror", action="store_true",
+                        help="Mirror the field in x and append (half-mushroom -> full, "
+                             "as Liska & Wendroff mirror their RT half-domain)")
     args = parser.parse_args()
 
     p = Path(args.vtk_path)
@@ -129,10 +132,17 @@ def main():
     print(f"Grid: {nx} x {ny},  "
           f"{args.field} range [{field.min():.4f}, {field.max():.4f}]")
 
+    # Mirror in x: append the x-reflected copy on the right (half mushroom -> full).
+    x0, x1 = x[0], x[-1]
+    if args.mirror:
+        field = np.concatenate([field, field[:, ::-1]], axis=1)
+        x1 = x0 + 2.0 * (x[-1] - x[0])
+        nx = field.shape[1]
+
     cmap = args.cmap or _CMAPS.get(args.field, "viridis")
 
     # Aspect ratio: physical domain proportions
-    domain_w = x[-1] - x[0]
+    domain_w = x1 - x0
     domain_h = y[-1] - y[0]
     fig_h = 5.0
     fig_w = fig_h * (domain_w / domain_h)
@@ -142,7 +152,7 @@ def main():
 
     im = ax.imshow(
         field, origin="lower",
-        extent=[x[0], x[-1], y[0], y[-1]],
+        extent=[x0, x1, y[0], y[-1]],
         cmap=cmap, aspect="equal",
         interpolation="bilinear",
     )

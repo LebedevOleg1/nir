@@ -8,13 +8,12 @@
 //   "Comparison of Several Difference Schemes on 1D and 2D Test Problems",
 //   SIAM J. Sci. Comput. 25(3), 995-1017.  DOI: 10.1137/S1064827502402120
 //
-// Setup: heavy fluid (rho=2) above light fluid (rho=1), gravity g=0.1 downward.
-// Domain [0, 1/6] x [0, 1].  gamma=5/3.
-// Initial pressure: hydrostatic equilibrium.
-// Perturbation: single-mode, localized at interface y=0.5:
-//   v = 0.01*(1 + cos(2*pi*x/Lx))*(1 + cos(2*pi*(y-0.5)/Ly))/4
-//
-// Compare density finger pattern at t=8.9 with Liska & Wendroff (2003) Fig.4.4.
+// Setup (section 4.6, verbatim): heavy fluid (rho=2) over light (rho=1),
+// gravity g=0.1 in -y. Domain [0, 1/6] x [0, 1], gamma=5/3.
+// Interface is a perturbed line  y = 1/2 + 0.01*cos(6*pi*x)  (geometry, not
+// velocity). Fluids initially at rest; pressure hydrostatic; density smoothed
+// across the interface. Reflecting (wall) BCs on all four borders -> half a
+// mushroom, mirrored in x for comparison with Fig.4.8. Grid 100x400, T=8.5.
 // ============================================================================
 struct RTPhysics {
     static constexpr PhysicsType type    = PhysicsType::Euler;

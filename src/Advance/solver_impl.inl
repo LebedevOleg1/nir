@@ -178,47 +178,42 @@ void Solver<P>::set_initial_conditions() {
             }
         }
         else if (config.ic == "rt") {
-            // Rayleigh-Taylor: Liska & Wendroff (2003) benchmark (SIAM J. Sci. Comput.).
-            // Heavy fluid (rho=2) above y=0.5, light (rho=1) below.
-            // Gravity g pointing in -y direction.
-            // Hydrostatic pressure: p(y) = p_top + g*rho_heavy*(1-y) for y>0.5
-            //                              p(y) = p_top + g*rho_heavy*0.5 + g*rho_light*(0.5-y) for y<0.5
-            // Single-mode perturbation localized at the interface y=0.5:
-            //   v = 0.01*(1+cos(2*pi*x/Lx))*(1+cos(2*pi*(y-0.5)/Ly))/4
-            // One wavelength across the domain in x (one finger), smoothly
-            // vanishing at the top/bottom walls in y.
+            // Rayleigh-Taylor: Liska & Wendroff (2003), section 4.6, verbatim setup.
+            // Region (0,1/6)x(0,1), gravity g=0.1 in -y. Upper fluid rho=2, lower rho=1.
+            // Interface is a PERTURBED LINE  y = 1/2 + 0.01*cos(6*pi*x)  (geometry
+            // is perturbed, NOT the velocity). Fluids initially at rest (u=v=0).
+            // Density is smoothed across the interface; pressure is hydrostatic.
+            // BCs reflecting (wall) on all four borders -> computes half a mushroom.
             float pi       = 3.14159265f;
             float g        = (config.gravity > 0) ? config.gravity : 0.1f;
             float rho_h    = 2.0f, rho_l = 1.0f;
             float y_mid    = y_off + 0.5f * Ly;
-            float p_top    = 2.5f;  // Liska 2003 boundary pressure
-
-            // Pressure at interface y_mid (integrating hydrostatic from top)
-            float p_mid    = p_top + g * rho_h * (y_off + Ly - y_mid);
+            float p_top    = 2.5f;          // Liska 2003 reference pressure at top
+            float delta    = 0.005f;        // interface smoothing width
 
             for (int i = 0; i < ncells; ++i) {
                 float x = mesh.centers[i].x;
                 float y = mesh.centers[i].y;
 
-                float rho, p;
-                if (y >= y_mid) {
-                    rho = rho_h;
-                    p   = p_top + g * rho_h * (y_off + Ly - y);
-                } else {
-                    rho = rho_l;
-                    p   = p_mid + g * rho_l * (y_mid - y);
-                }
+                // Perturbed, smoothed interface (Liska 4.6): y_int = 0.5 + 0.01*cos(6*pi*x)
+                float y_int = y_mid + 0.01f * cosf(6.0f * pi * x);
+                float rho   = rho_l + (rho_h - rho_l) * 0.5f *
+                                      (1.0f + tanhf((y - y_int) / delta));
 
-                // Single-mode perturbation, localized at the interface y_mid.
-                // (1+cos(2*pi*x/Lx)): one wavelength across the width.
-                // (1+cos(2*pi*(y-y_mid)/Ly)): peaks at y_mid, zero at walls.
-                float v = 0.01f * (1.0f + cosf(2.0f * pi * x / Lx))
-                                * (1.0f + cosf(2.0f * pi * (y - y_mid) / Ly)) / 4.0f;
+                // Hydrostatic pressure (integrated from the top, sharp at y_mid;
+                // the 0.01 interface perturbation is negligible for the balance).
+                float p;
+                if (y >= y_mid)
+                    p = p_top + g * rho_h * (y_off + Ly - y);
+                else
+                    p = p_top + g * rho_h * (y_off + Ly - y_mid)
+                              + g * rho_l * (y_mid - y);
 
-                float E = p / (gamma - 1.0f) + 0.5f * rho * v * v;
+                // Fluids initially at rest.
+                float E = p / (gamma - 1.0f);
                 state.curr[0 * ncells_total + i] = rho;
                 state.curr[1 * ncells_total + i] = 0.0f;
-                state.curr[2 * ncells_total + i] = rho * v;
+                state.curr[2 * ncells_total + i] = 0.0f;
                 state.curr[3 * ncells_total + i] = E;
             }
         }
