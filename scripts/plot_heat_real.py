@@ -35,31 +35,32 @@ def field(path):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("runs", nargs="+", help="N:path to coarse-grid VTK")
-    ap.add_argument("--ref", required=True, help="Nref:path to finest-grid VTK")
+    ap.add_argument("runs", nargs="+", help="N:path, in increasing N (pairs N,2N used)")
     ap.add_argument("--out", default="diploma/figures/heat_convergence.pdf")
     args = ap.parse_args()
 
-    Nref, ref_path = args.ref.split(":")
-    Nref = int(Nref)
-    Tref = field(ref_path)
-
-    hs, errs = [], []
-    print(f"{'N':>6} {'h':>10} {'L2':>14} {'p':>6}")
-    prev_e = prev_h = None
+    # Pairwise Richardson: e(N) = || T_N - T_{2N} ||  (next grid as reference).
+    # Slope of e(N) vs h gives the convergence order, independent of a distant
+    # reference grid.
+    grids = []
     for spec in args.runs:
         N, path = spec.split(":")
-        N = int(N)
-        T = field(path)
-        k = Nref // N
-        ref_sub = Tref[::k, ::k]
-        ny = min(T.shape[0], ref_sub.shape[0])
-        nx = min(T.shape[1], ref_sub.shape[1])
-        h = 1.0 / N
-        diff = T[:ny, :nx] - ref_sub[:ny, :nx]
+        grids.append((int(N), field(path)))
+    grids.sort(key=lambda t: t[0])
+
+    hs, errs = [], []
+    print(f"{'N':>6} {'h':>10} {'L2(N,2N)':>14} {'p':>6}")
+    prev_e = prev_h = None
+    for (Nc, Tc), (Nf, Tf) in zip(grids[:-1], grids[1:]):
+        k = Nf // Nc
+        Tf_sub = Tf[::k, ::k]
+        ny = min(Tc.shape[0], Tf_sub.shape[0])
+        nx = min(Tc.shape[1], Tf_sub.shape[1])
+        h = 1.0 / Nc
+        diff = Tc[:ny, :nx] - Tf_sub[:ny, :nx]
         L2 = np.sqrt(np.sum(diff**2) * h * h)
         p = "---" if prev_e is None else f"{np.log(prev_e/L2)/np.log(prev_h/h):.2f}"
-        print(f"{N:>6} {h:>10.5f} {L2:>14.4e} {p:>6}")
+        print(f"{Nc:>6} {h:>10.5f} {L2:>14.4e} {p:>6}")
         hs.append(h); errs.append(L2)
         prev_e, prev_h = L2, h
 
