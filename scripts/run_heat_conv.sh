@@ -10,7 +10,7 @@ BIN="$ROOT/build/problems/heat_gaussian/heat"
 export CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-1}
 
 TFIX=0.5                       # common physical time for all grids
-for N in 64 128 256 512; do
+for N in 128 256 512 1024; do
     # dt = cfl*0.25*h^2/kappa, h=10/N, cfl=0.4, kappa=1  => steps = TFIX*N^2/10
     STEPS=$(python3 -c "print(int($TFIX*$N*$N/10.0))")
     OUT="$ROOT/results/heat_N$N"; mkdir -p "$OUT"
@@ -22,9 +22,9 @@ for N in 64 128 256 512; do
 done
 
 echo
-echo "Then build the convergence figure:"
+echo "Then build the convergence figure (reference = finest grid 1024):"
 echo "  python3 scripts/plot_heat_real.py \\"
-echo "    64:results/heat_N64/output_0001.vtk 128:results/heat_N128/output_0001.vtk \\"
-echo "    256:results/heat_N256/output_0001.vtk \\"
-echo "    --ref 512:results/heat_N512/output_0001.vtk \\"
-echo "    --out diploma/figures/heat_convergence.pdf"
+echo "    128:results/heat_N128/output_0001.vtk 256:results/heat_N256/output_0001.vtk \\"
+echo "    512:results/heat_N512/output_0001.vtk \\"
+echo "    --ref 1024:results/heat_N1024/output_0001.vtk \\"
+echo "    --out figures_out/heat_convergence.pdf"

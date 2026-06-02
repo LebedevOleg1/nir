@@ -29,7 +29,7 @@ GAMMA = 1.4
 
 
 def sod_exact(x, t, gamma=GAMMA):
-    """Exact density of the Sod problem at time t (rhoL=1,pL=1 | rhoR=0.125,pR=0.1)."""
+    """Exact density of the Sod problem at time t (full Riemann solution)."""
     rhoL, uL, pL = 1.0, 0.0, 1.0
     rhoR, uR, pR = 0.125, 0.0, 0.1
     x0 = 0.5
@@ -59,28 +59,43 @@ def sod_exact(x, t, gamma=GAMMA):
     rho = np.zeros_like(x)
     s = (x - x0) / t
 
-    # Left: rarefaction (p_star < pL)
-    rho_starL = rhoL * (p_star / pL) ** (1 / gamma)
-    c_starL = cL * (p_star / pL) ** ((gamma - 1) / (2 * gamma))
-    SHL = uL - cL
-    STL = u_star - c_starL
-    lw = s < SHL
-    lf = (s >= SHL) & (s < STL)
-    ls = (s >= STL) & (s < u_star)
-    rho[lw] = rhoL
-    c_fan = 2 / (gamma + 1) * (cL - (gamma - 1) / 2 * (uL - s[lf]))
-    rho[lf] = rhoL * (c_fan / cL) ** (2 / (gamma - 1))
-    rho[ls] = rho_starL
+    # ---- Left wave ----
+    if p_star > pL:  # left shock
+        rho_starL = rhoL * ((p_star / pL + (gamma - 1) / (gamma + 1))
+                            / ((gamma - 1) / (gamma + 1) * p_star / pL + 1))
+        SL = uL - cL * np.sqrt((gamma + 1) / (2 * gamma) * p_star / pL
+                               + (gamma - 1) / (2 * gamma))
+        rho[s < SL] = rhoL
+        rho[(s >= SL) & (s < u_star)] = rho_starL
+    else:            # left rarefaction
+        rho_starL = rhoL * (p_star / pL) ** (1 / gamma)
+        c_starL = cL * (p_star / pL) ** ((gamma - 1) / (2 * gamma))
+        SHL = uL - cL
+        STL = u_star - c_starL
+        rho[s < SHL] = rhoL
+        lf = (s >= SHL) & (s < STL)
+        c_fan = 2 / (gamma + 1) * (cL + (gamma - 1) / 2 * (uL - s[lf]))
+        rho[lf] = rhoL * (c_fan / cL) ** (2 / (gamma - 1))
+        rho[(s >= STL) & (s < u_star)] = rho_starL
 
-    # Right: shock (p_star > pR)
-    rho_starR = rhoR * ((p_star / pR + (gamma - 1) / (gamma + 1))
-                        / ((gamma - 1) / (gamma + 1) * p_star / pR + 1))
-    SR = uR + cR * np.sqrt((gamma + 1) / (2 * gamma) * p_star / pR
-                           + (gamma - 1) / (2 * gamma))
-    rs = (s >= u_star) & (s < SR)
-    rw = s >= SR
-    rho[rs] = rho_starR
-    rho[rw] = rhoR
+    # ---- Right wave ----
+    if p_star > pR:  # right shock
+        rho_starR = rhoR * ((p_star / pR + (gamma - 1) / (gamma + 1))
+                            / ((gamma - 1) / (gamma + 1) * p_star / pR + 1))
+        SR = uR + cR * np.sqrt((gamma + 1) / (2 * gamma) * p_star / pR
+                               + (gamma - 1) / (2 * gamma))
+        rho[(s >= u_star) & (s < SR)] = rho_starR
+        rho[s >= SR] = rhoR
+    else:            # right rarefaction
+        rho_starR = rhoR * (p_star / pR) ** (1 / gamma)
+        c_starR = cR * (p_star / pR) ** ((gamma - 1) / (2 * gamma))
+        SHR = uR + cR
+        STR = u_star + c_starR
+        rho[(s >= u_star) & (s < STR)] = rho_starR
+        rf = (s >= STR) & (s < SHR)
+        c_fan = 2 / (gamma + 1) * (cR - (gamma - 1) / 2 * (uR - s[rf]))
+        rho[rf] = rhoR * (c_fan / cR) ** (2 / (gamma - 1))
+        rho[s >= SHR] = rhoR
     return rho
 
 
