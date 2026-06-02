@@ -571,6 +571,14 @@ void Solver<P>::solve() {
             if (mpi_rank == 0) print_diagnostics(step);
             gather_and_save_vtk(saved++);
         }
+
+        // Stop at a prescribed physical time (for grid-convergence at fixed t).
+        if (config.t_final > 0.0f && sim_time >= config.t_final) {
+            if (use_gpu)
+                gpu_state.download(state.curr.data(), mesh.get_ncells_total());
+            gather_and_save_vtk(saved++);
+            break;
+        }
     }
 
     auto t_end = std::chrono::high_resolution_clock::now();

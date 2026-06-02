@@ -59,6 +59,7 @@ static void apply_kv(SimConfig& cfg, const std::string& key, const std::string& 
     else if (key == "steps")       cfg.steps      = std::stoi(val);
     else if (key == "save-every" || key == "save_every") cfg.save_every = std::stoi(val);
     else if (key == "cfl")         cfg.cfl        = std::stof(val);
+    else if (key == "t-final" || key == "t_final") cfg.t_final = std::stof(val);
     else if (key == "kappa")       cfg.kappa      = std::stof(val);
     else if (key == "gamma")       cfg.gamma      = std::stof(val);
     else if (key == "gravity")     cfg.gravity    = std::stof(val);

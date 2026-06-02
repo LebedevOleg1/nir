@@ -29,6 +29,7 @@ struct SimConfig {
     int   steps      = 400;
     int   save_every = 10;
     float cfl        = 0.5f;
+    float t_final    = 0.0f;   // if > 0: integrate until this physical time (steps = upper bound)
 
     // Boundary conditions [left, right, bottom, top]
     BCSpec bc[4];
