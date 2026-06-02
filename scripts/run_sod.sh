@@ -1,23 +1,26 @@
 #!/bin/bash
-#SBATCH --job-name=sod-verify
-#SBATCH --partition=gpu
-#SBATCH --nodes=1
-#SBATCH --ntasks=1
-#SBATCH --gres=gpu:1
-#SBATCH --cpus-per-task=1
-#SBATCH --time=00:05:00
-#SBATCH --output=sod_%j.log
+# Real Sod runs for the density profile and grid-convergence table.
+# Thin strip (1D problem), HLLC+MUSCL. Each run prints "sim_time=..." — use it
+# as --t for the exact solution.
+#
+#   CUDA_VISIBLE_DEVICES=1 ./scripts/run_sod.sh
+set -e
+ROOT=$(pwd)
+BIN="$ROOT/build/problems/sod_shock/sod"
+export CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-1}
 
-cd "$SLURM_SUBMIT_DIR"
-
-echo "=== Sod shock tube verification ==="
-
-rm -f output_*.vtk
-
-for NX in 50 100 200 400; do
-    echo "--- nx=$NX ---"
-    mpirun -np 1 ./build/problems/sod_shock/sod \
-        --device=gpu --nx=$NX --ny=4 --steps=200
+for N in 100 200 400 800; do
+    STEPS=$(python3 -c "print(int(0.9*$N))")   # ~ reaches t≈0.2
+    OUT="$ROOT/results/sod_N$N"; mkdir -p "$OUT"
+    echo "=== Sod N=$N, steps=$STEPS ==="
+    (cd "$OUT" && rm -f output_*.vtk && cp "$ROOT/problems/sod_shock/inputs" . &&
+     mpirun -np 1 "$BIN" --nx=$N --ny=8 --steps=$STEPS --save-every=$STEPS \
+        --device=gpu --muscl=true --hllc=true \
+        --xmin=0 --xmax=1 --ymin=0 --ymax=0.02 2>&1 | grep -E "sim_time")
 done
 
-echo "=== Run plot_convergence.py to see L2 error vs h ==="
+echo
+echo "Profile (use sim_time of N=400 as <t>):"
+echo "  python3 scripts/plot_sod_real.py profile results/sod_N400/output_0001.vtk --t <t> --out diploma/figures/sod_density.pdf"
+echo "Convergence table (use each run's sim_time):"
+echo "  python3 scripts/plot_sod_real.py conv 100:results/sod_N100/output_0001.vtk:<t100> 200:results/sod_N200/output_0001.vtk:<t200> 400:results/sod_N400/output_0001.vtk:<t400> 800:results/sod_N800/output_0001.vtk:<t800>"

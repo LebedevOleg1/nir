@@ -527,8 +527,9 @@ void Solver<P>::solve() {
 
     auto t_start = std::chrono::high_resolution_clock::now();
 
+    float sim_time = 0.0f;   // accumulated physical time (dt varies via CFL)
     for (int step = 1; step <= config.steps; ++step) {
-        float time = step * dt;
+        float time = sim_time;
         update_source(time);
         if (use_gpu) {
             if constexpr (P == PhysicsType::Heat || P == PhysicsType::Diffusion)
@@ -538,6 +539,7 @@ void Solver<P>::solve() {
         if constexpr (P == PhysicsType::Euler) {
             dt = use_gpu ? compute_dt_gpu() : compute_dt();
         }
+        sim_time += dt;
 
         {
             Timer::Scope ts(use_gpu ? "step_gpu" : "step_cpu");
@@ -577,6 +579,7 @@ void Solver<P>::solve() {
     if (mpi_rank == 0) {
         std::cout << "Done! Wall time: " << dur.count() << "s"
                   << " | " << (config.steps / dur.count()) << " steps/s\n";
+        std::cout << "sim_time=" << sim_time << "\n";
         Timer::get().report(mpi_rank);
     }
 }
