@@ -284,12 +284,16 @@ void Solver<P>::update_source(float time) {
         float r  = config.source.radius;
         float Ps = config.source.power;
 
+        // Smooth Gaussian source exp(-(r^2)/sigma^2): a differentiable source
+        // term so the central scheme attains its design second order on the
+        // smooth solution (a discontinuous "top-hat" source would limit it to
+        // first order). sigma = radius.
+        float inv_s2 = 1.0f / (r * r);
         for (int c = start; c < end; ++c) {
             float dx = mesh.centers[c].x - sx;
             float dy = mesh.centers[c].y - sy;
-            source[c] = (dx*dx + dy*dy < r*r)
-                ? Ps * (1.0f + 0.5f * sinf(2.0f * 3.14159f * time / 5.0f))
-                : 0.0f;
+            source[c] = Ps * expf(-(dx*dx + dy*dy) * inv_s2)
+                           * (1.0f + 0.5f * sinf(2.0f * 3.14159f * time / 5.0f));
         }
     }
 }
