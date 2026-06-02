@@ -67,8 +67,8 @@ def main():
     hs = np.array(hs); errs = np.array(errs)
     fig, ax = plt.subplots(figsize=(6, 4))
     ax.loglog(hs, errs, "o-", color="C1", label="численная ошибка")
-    ref_line = errs[0] * (hs / hs[0])**2
-    ax.loglog(hs, ref_line, "--", color="gray", label=r"$O(h^2)$ эталон")
+    ref_line = errs[0] * (hs / hs[0])**1
+    ax.loglog(hs, ref_line, "--", color="gray", label=r"$O(h)$ эталон")
     ax.set_xlabel(r"$h$ (шаг сетки)")
     ax.set_ylabel(r"$\|e_h\|_{L_2}$")
     ax.set_title("Сходимость уравнения теплопроводности")
