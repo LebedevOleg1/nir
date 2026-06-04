@@ -132,13 +132,14 @@ def main():
     print(f"Grid: {nx} x {ny},  "
           f"{args.field} range [{field.min():.4f}, {field.max():.4f}]")
 
-    # Mirror in x: prepend the x-reflected copy on the LEFT, so the centre of
-    # the combined image is the x=0 edge of the domain (where, for the Liska RT
-    # interface y=0.5+0.01*cos(6 pi x), the light fluid forms an upward bubble).
-    # This matches the orientation of the mushroom shown in Liska & Wendroff.
+    # Mirror in x: append the x-reflected copy on the RIGHT, so the centre of
+    # the combined image is the x = x_max edge of the half-domain, where the
+    # light fluid forms the upward bubble (its cap with horns), and the heavy
+    # spikes fall on the two outer sides.  This reproduces the single central
+    # mushroom orientation of Liska & Wendroff Fig. 4.8.
     x0, x1 = x[0], x[-1]
     if args.mirror:
-        field = np.concatenate([field[:, ::-1], field], axis=1)
+        field = np.concatenate([field, field[:, ::-1]], axis=1)
         x1 = x0 + 2.0 * (x[-1] - x[0])
         nx = field.shape[1]
 
