@@ -117,7 +117,7 @@ void Solver<P>::set_initial_conditions() {
             float pi    = 3.14159265f;
             float p0    = 2.5f;
             float rho1  = 1.0f, rho2 = 2.0f;
-            float u1    = -0.5f, u2  = 0.5f;
+            float u1    = 0.5f, u2  = -0.5f;   // McNally: outer +0.5, inner -0.5
             float sigma = 0.05f / 1.41421356f;  // 0.05/sqrt(2)
             float w0    = 0.01f;                  // McNally eq.5 amplitude
             float y1    = y_off + 0.25f * Ly;
